@@ -262,6 +262,12 @@ if __name__ == '__main__':
                 done = True
                 stop_joy_loop()
                 stop_reflex_loop()
+            elif event.type == pygame.KEYDOWN:
+                key_pressed = event.key
+                my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
+            elif event.type == pygame.KEYUP:
+                key_released = event.key
+                my_logger.info("Key Ascii Value {} Released".format(key_released))
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
@@ -288,8 +294,6 @@ if __name__ == '__main__':
                 pass
             else:
                 pass # ignoring other non-logitech joystick event types
-
-
 
 
 
