@@ -298,12 +298,10 @@ if __name__ == '__main__':
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
                 key_ring[str(key_pressed)] = 1
-                key_set = 1
             elif event.type == pygame.KEYUP:
                 key_released = event.key
                 my_logger.info("Key Ascii Value {} Released".format(key_released))
                 key_ring[str(key_released)] = 0
-                key_set = 0
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
@@ -316,13 +314,8 @@ if __name__ == '__main__':
                     time.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
-                else:
-                    my_controller.set_button_press(button)
-
             elif event.type == pygame.JOYBUTTONUP:
-                button = my_joy.get_button_released(event)
                 my_logger.info("Button {} Released".format(button))
-                my_controller.set_button_release(button)
             elif event.type == pygame.JOYHATMOTION:
                 my_logger.info("Hat movement - {}".format(my_joy.get_hat_movement(event)))
                 pass
@@ -330,22 +323,6 @@ if __name__ == '__main__':
                 pass
             else:
                 pass # ignoring other non-logitech joystick event types
-
-            if key_set == 1:
-                my_logger.info("Key Ring {}".format(key_ring))
-
-        # The code below is to test the measurement of Axes displacement in the Joystick and should be removed
-        '''
-        Num_Axes = my_joy.axes
-        for k in range(0,Num_Axes,1):
-            d = my_joy.get_axis_displacement_and_grip(k)
-            #my_logger.info("Axis No.: {} Move: {} Displacement: {} Grip: {}".format(k,d[0],d[1],d[2]))
-            if d[0] == 1:
-                palm.grip_fingers(d[1],d[2])
-            elif d[0] == 2:
-                palm.space_finger1_and_finger2(d[1],d[2])
-        '''
-        # end of test code for the measurement of Axes displacement in the Joystick
 
         textPrint.Screenprint(screen, "When ready to Quit, close the screen")
         textPrint.Yspace()
