@@ -220,7 +220,7 @@ if __name__ == '__main__':
 
 
     key_ring = {}
-    key_ring['300']= 0  # 300 is num lock. This will be displayed in the screen  Numlock = 1 + keys are the command set
+    key_ring['301']= 0  # 301 is Caps lock. This will be displayed in the screen  Caps lock = 1 + keys are the command set
     key_pressed = 0     # key press and release will happen one after another
     key_released = 0
 
@@ -233,7 +233,7 @@ if __name__ == '__main__':
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
                 key_ring[str(key_pressed)] = 1
-                if key_ring['300'] == 1:    # Numlock is 1
+                if key_ring['301'] == 1:    # Caps lock is 1
                     if my_key_controller.set_key_press(key_pressed) == 1:
                         calibrate = True
             elif event.type == pygame.KEYUP:
@@ -243,7 +243,7 @@ if __name__ == '__main__':
             else:
                 pass # ignoring other non-logitech joystick event types
 
-        textPrint.Screenprint(screen, "You can only after Calibration; NumLock should be 1")
+        textPrint.Screenprint(screen, "You can only after Calibration; Caps Lock should be 1")
         textPrint.Yspace()
         textPrint.Screenprint(screen, "Finger 1 - Press 'q' to move up")
         textPrint.Yspace()
@@ -263,7 +263,7 @@ if __name__ == '__main__':
         textPrint.Yspace()
         textPrint.Screenprint(screen, "Press c when calibration is complete")
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"Num Lock Key Pressed {}".format(key_ring['300']))
+        textPrint.Screenprint(screen,"Caps Lock Key set to {}".format(key_ring['301']))
         # Go ahead and update the screen with what we've drawn.
         pygame.display.flip()
 
@@ -325,8 +325,8 @@ if __name__ == '__main__':
                 pass # ignoring other non-logitech joystick event types
 
         textPrint.Screenprint(screen, "When ready to Quit, close the screen")
-        textPrint.Yspace()
-        textPrint.Screenprint(screen,"Num Lock Key Pressed {}".format(key_ring['300']))
+        #textPrint.Yspace()
+        #textPrint.Screenprint(screen,"Caps Lock Key Pressed {}".format(key_ring['301']))
         #textPrint.indent()
         #textPrint.Yspace()
         #textPrint.Screenprint(screen, "Num Lock Key Released: {}".format(key_released))
