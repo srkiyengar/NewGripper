@@ -459,3 +459,88 @@ class joy_reflex_controller:
         fp.write(ges)   # write the remaining string
         fp.close()
         return new_limits
+
+
+
+class key_reflex_controller:
+
+    def __init__(self, grabber):
+        self.palm = grabber
+        self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0}
+        # Letter-Integer q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102,c-99
+        # When key value is captured it can be turned into string for the dict.
+        # All keys are set to 0 and become 1 if key is pressed and go to 0 when released.
+
+    def set_key_press(self, key):
+        self.keys[str(key)] = 1
+        return self.process_key_actions()
+
+    def set_key_release(self,key):
+        self.keys[str(key)] = 0
+
+    def reset_key_press(self,key):
+        self.keys[str(key)] = 0
+
+    def process_key_actions(self):  # Act based on Buttons
+        k = 0       # return 1 when processing letter c
+        if self.keys['101'] == 1:   # letter e
+            sid = 3
+            grip = 1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(101)
+        elif self.keys['100'] == 1: # letter d
+            sid = 3
+            grip = -1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(100)
+        elif self.keys['119'] == 1: # letter w
+            sid = 2
+            grip = 1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(119)
+        elif self.keys['115'] == 1:   # letter s
+            sid = 2
+            grip = -1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(115)
+        elif self.keys['113'] == 1: # letter q
+            sid = 1
+            grip = 1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(113)
+        elif self.keys['97'] == 1: # letter a
+            sid = 1
+            grip = -1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(97)
+        elif self.keys['114'] == 1: # letter s
+            sid = 4
+            grip = 1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(114)
+        elif self.keys['102'] == 1: # letter s
+            sid = 4
+            grip = -1
+            self.palm.manual_move_finger(sid,grip)
+            self.reset_key_press(102)
+        elif self.keys['99'] == 1:  # letter c
+            my_logger.info("New Finger positions - calibration")
+            try:
+                fp = open("calibration","w")
+            except IOError:
+                raise IOError ("Unable to open calibration file")
+
+            new_limits = self.palm.read_palm_servo_positions()
+            self.palm.set_palm_rest_position(new_limits)
+            my_logger.info("Calibration - New Rest Positions F1-{} F2-{} F3-{} F4 {}".format
+                            (new_limits[1],new_limits[2],new_limits[3],new_limits[4]))
+            s = str(new_limits)
+            nes = s[1:]     # Remove [
+            ges = nes[:-1]  # Remove ]
+            fp.write(ges)   # write the remaining string
+            fp.close()
+            self.reset_key_press(99)
+            k = 1
+        return k
+
+

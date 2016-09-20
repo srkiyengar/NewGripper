@@ -210,6 +210,7 @@ if __name__ == '__main__':
     # Joystick Values
     my_joy = js.ExtremeProJoystick()
     my_controller = reflex.joy_reflex_controller(my_joy,palm)
+    my_key_controller = reflex.key_reflex_controller(palm)
 
     # Event to pause the thread
     e2 = threading.Event()
@@ -217,28 +218,59 @@ if __name__ == '__main__':
 
     calibrate = False
 
+
+    key_ring = {}
+    key_ring['300']= 0  # 300 is num lock. This will be displayed in the screen  Numlock = 1 + keys are the command set
+    key_pressed = 0     # key press and release will happen one after another
+    key_released = 0
+
     while calibrate is False:
+        screen.fill(WHITE)
+        textPrint.reset()
+
         for event in pygame.event.get():
-            if event.type == pygame.JOYBUTTONDOWN:
-                button = my_joy.get_button_pressed(event)
-                my_logger.info("Button {} pressed".format(button))
-                if button in (2,3,6,7,8,9,10,11):
-                    my_controller.set_button_press(button)
-                elif button == 1:   #silver button on the right facing the buttons
-                    gp_servo = my_controller.update_calibration()
-                    calibrate = True
-                else:
-                    my_logger.info("Button {} press ignored before calibration".format(button))
-            elif event.type == pygame.JOYBUTTONUP:
-                button = my_joy.get_button_released(event)
-                my_logger.info("Button {} Released".format(button))
-                if button in (2,3,6,7,8,9,10,11):
-                    my_controller.set_button_release(button)
-                else:
-                    my_logger.info("Button {} press ignored before calibration".format(button))
+            if event.type == pygame.KEYDOWN:
+                key_pressed = event.key
+                my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
+                key_ring[str(key_pressed)] = 1
+                if key_ring['300'] == 1:    # Numlock is 1
+                    if my_key_controller.set_key_press(key_pressed) == 1:
+                        calibrate = True
+            elif event.type == pygame.KEYUP:
+                key_released = event.key
+                my_logger.info("Key Ascii Value {} Released".format(key_released))
+                key_ring[str(key_released)] = 0
             else:
                 pass # ignoring other non-logitech joystick event types
 
+        textPrint.Screenprint(screen, "You can only after Calibration; NumLock should be 1")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Finger 1 - Press 'q' to move up")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Finger 1 - Press 'a' to move down")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Finger 2 - Press 'w' to move up")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Finger 2 - Press 's' to move down")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Finger 3 - Press 'e' to move up")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Finger 3 - Press 'd' to move down")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Pre Shape - Press 'r' to move closer")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Pre Shape - Press 'f' to move away")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Press c when calibration is complete")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"Num Lock Key Pressed {}".format(key_ring['300']))
+        # Go ahead and update the screen with what we've drawn.
+        pygame.display.flip()
+
+        # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
+        clock.tick(SCAN_RATE)
+
+    # Calibration completed
 
     # preparing the two threads that will run
     get_goal_position_thread = threading.Thread(target = update_joy_displacement,args=(my_joy,e2))
@@ -252,11 +284,11 @@ if __name__ == '__main__':
 
     # The main loop that examines for other UI actions including Joy button/HatLoop until the user clicks the close button.
     done = False
+    key_set = 0         # To control what printing to logfile only if a key press is detected
 
     while done is False:
         screen.fill(WHITE)
         textPrint.reset()
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
@@ -265,9 +297,13 @@ if __name__ == '__main__':
             elif event.type == pygame.KEYDOWN:
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
+                key_ring[str(key_pressed)] = 1
+                key_set = 1
             elif event.type == pygame.KEYUP:
                 key_released = event.key
                 my_logger.info("Key Ascii Value {} Released".format(key_released))
+                key_ring[str(key_released)] = 0
+                key_set = 0
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
@@ -295,7 +331,8 @@ if __name__ == '__main__':
             else:
                 pass # ignoring other non-logitech joystick event types
 
-
+            if key_set == 1:
+                my_logger.info("Key Ring {}".format(key_ring))
 
         # The code below is to test the measurement of Axes displacement in the Joystick and should be removed
         '''
@@ -312,6 +349,11 @@ if __name__ == '__main__':
 
         textPrint.Screenprint(screen, "When ready to Quit, close the screen")
         textPrint.Yspace()
+        textPrint.Screenprint(screen,"Num Lock Key Pressed {}".format(key_ring['300']))
+        #textPrint.indent()
+        #textPrint.Yspace()
+        #textPrint.Screenprint(screen, "Num Lock Key Released: {}".format(key_released))
+        #textPrint.unindent()
 
         # ALL CODE TO DRAW SHOULD GO ABOVE THIS COMMENT
         # Go ahead and update the screen with what we've drawn.
