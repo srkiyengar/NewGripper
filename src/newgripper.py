@@ -9,6 +9,9 @@ import screen_print as sp
 import joystick as js
 import threading
 import time
+import data_collect as dc
+
+
 
 POS_ERROR = 20
 
@@ -40,6 +43,9 @@ reflex_command_loop = True      # servo command thread loop control
 joy_measurement_loop = True     # joystick loop control
 joy_moved = False               # This is to restrict logging to logger only when there is a change in displacement
 
+record_displacement = False     # When to record values
+
+
 
 def stop_joy_loop():
     '''
@@ -57,6 +63,7 @@ def stop_reflex_loop():
     '''
     global reflex_command_loop
     reflex_command_loop = False
+    displacement_file_object.close_file()
 
 
 def update_joy_displacement(my_joy, e2):
@@ -135,10 +142,11 @@ def move_reflex_to_goal_positions(palm,e2):
             my_logger.info('Thread Reflex Counter: {} - Time: {} Aperture disp {} Pre-shape disp'.
                            format(counter, command_time, aper_disp,pre_disp))
             # Sending the displacement to move_fingers in reflex.py to process
-            palm.move_fingers(aper_disp,pre_disp)
-
+            servo_gp = palm.move_fingers(aper_disp,pre_disp)
 
             with my_lock:
+                if record_displacement:
+                    displacement_file_object.write_data(str(command_time)+": "+str(servo_gp).strip("[]")+'\n')
                 joy_moved = False
                 my_logger.info('Thread Reflex - Resetting Joy Displacement Flag to {}'.format(joy_moved))
 
@@ -219,11 +227,12 @@ if __name__ == '__main__':
     calibrate = False
 
 
-    key_ring = {}
+    key_ring={}
     key_ring['301']= 0  # 301 is Caps lock. This will be displayed in the screen  Caps lock = 1 + keys are the command set
     key_pressed = 0     # key press and release will happen one after another
     key_released = 0
 
+    # Calibration
     while calibrate is False:
         screen.fill(WHITE)
         textPrint.reset()
@@ -276,15 +285,15 @@ if __name__ == '__main__':
     get_goal_position_thread = threading.Thread(target = update_joy_displacement,args=(my_joy,e2))
     set_goal_position_thread = threading.Thread(target = move_reflex_to_goal_positions, args=(palm,e2))
 
-
+    # Two threads started
     get_goal_position_thread.start()
     set_goal_position_thread.start()
 
 
 
+
     # The main loop that examines for other UI actions including Joy button/HatLoop until the user clicks the close button.
     done = False
-    key_set = 0         # To control what printing to logfile only if a key press is detected
 
     while done is False:
         screen.fill(WHITE)
@@ -298,6 +307,12 @@ if __name__ == '__main__':
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
                 key_ring[str(key_pressed)] = 1
+                if key_ring['301'] == 1:    # Caps lock is 1
+                    e2.clear()
+                    time.sleep(0.5)
+                    my_key_controller.set_key_press(key_pressed)
+                    time.sleep(0.2)
+                    e2.set()
             elif event.type == pygame.KEYUP:
                 key_released = event.key
                 my_logger.info("Key Ascii Value {} Released".format(key_released))
@@ -314,6 +329,14 @@ if __name__ == '__main__':
                     time.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
+                elif button == 4:
+                    my_file = dc.displacement_file()
+                    with my_lock:
+                        record_displacement = True
+                        displacement_file_object = my_file
+                elif button == 5:
+                    with my_lock:
+                        record_displacement = False
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
             elif event.type == pygame.JOYHATMOTION:
@@ -325,8 +348,8 @@ if __name__ == '__main__':
                 pass # ignoring other non-logitech joystick event types
 
         textPrint.Screenprint(screen, "When ready to Quit, close the screen")
-        #textPrint.Yspace()
-        #textPrint.Screenprint(screen,"Caps Lock Key Pressed {}".format(key_ring['301']))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"Caps Lock Key Pressed {}".format(key_ring['301']))
         #textPrint.indent()
         #textPrint.Yspace()
         #textPrint.Screenprint(screen, "Num Lock Key Released: {}".format(key_released))

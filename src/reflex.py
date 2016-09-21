@@ -333,6 +333,7 @@ class reflex_sf():
         return
 
     def move_fingers(self,aperture_disp, pre_shape_disp):
+        F=[]
         # calculating new goal positions
         aperture_disp = aperture_disp*MOVE_TICKS
         for i in range(1, 4, 1):      # only setting servo 1, 2, 3 for aperture change
@@ -343,8 +344,10 @@ class reflex_sf():
                 my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
                 self.finger[i]["servo"].set_goal_position(np)
                 self.finger[i]["GP"] = np
+                F.append(np)
             else:
                 raise RuntimeError('servo finger joint rotation error\n')
+
 
         value = self.finger[4]["GP"]
         new_value = int(value + (pre_shape_disp*self.finger[4]["rotation"]*MOVE_TICKS_SERVO4))
@@ -353,9 +356,10 @@ class reflex_sf():
             my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
             self.finger[4]["servo"].set_goal_position(np)
             self.finger[4]["GP"] = np
+            F.append(np)
         else:
             raise RuntimeError('servo finger joint rotation error\n')
-        return
+        return F
 
 class joy_reflex_controller:
     def __init__(self, my_joy,grabber):
