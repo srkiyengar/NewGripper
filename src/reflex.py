@@ -470,7 +470,7 @@ class key_reflex_controller:
 
     def __init__(self, grabber):
         self.palm = grabber
-        self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0}
+        self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0,'122':0}
         # Letter-Integer q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102,c-99
         # When key value is captured it can be turned into string for the dict.
         # All keys are set to 0 and become 1 if key is pressed and go to 0 when released.
@@ -545,6 +545,15 @@ class key_reflex_controller:
             fp.close()
             self.reset_key_press(99)
             k = 1
+        elif self.keys['122'] == 1:  # letter z
+            curr_pos = self.palm.read_palm_servo_positions()
+            my_logger.info("Current Positions [{}, {}, {}, {}".format
+                            (curr_pos[1],curr_pos[2],curr_pos[3],curr_pos[4]))
+            rest_pos = self.palm.get_rest_position()
+            my_logger.info("Servo Movement [{}, {}, {}, {}]".format
+                            (curr_pos[1]-rest_pos[1],rest_pos[2]- curr_pos[2],curr_pos[3]-rest_pos[3],
+                             rest_pos[4]-curr_pos[4]))
+            self.reset_key_press(122)
         return k
 
 

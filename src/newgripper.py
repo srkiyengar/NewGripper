@@ -37,10 +37,11 @@ reflex_loop_rate = 16000    # in microsecond
 
 
 last_time = datetime.now()
-my_lock = threading.Lock()      # shared variables between the two threads are accessed through a lock
+my_lock = threading.Lock()      # shared variables between joy and reflex thread are accessed through a lock
 
 reflex_command_loop = True      # servo command thread loop control
 joy_measurement_loop = True     # joystick loop control
+joy_measurement_ts = 0.0        # joystick displacement measurement timestamp
 joy_moved = False               # This is to restrict logging to logger only when there is a change in displacement
 
 record_displacement = False     # When to record values
@@ -63,7 +64,7 @@ def stop_reflex_loop():
     '''
     global reflex_command_loop
     reflex_command_loop = False
-    displacement_file_object.close_file()
+
 
 
 def update_joy_displacement(my_joy, e2):
@@ -76,7 +77,7 @@ def update_joy_displacement(my_joy, e2):
     '''
     last_joy_time = last_time
     counter = 1
-    global joy_moved, change_aperture, change_pre_shape
+    global joy_moved, change_aperture, change_pre_shape, joy_measurement_ts
     while joy_measurement_loop:
         e2.wait()       # This is used to pause the thread in case we want to calibrate the gripper
         present_time = datetime.now()
@@ -98,6 +99,7 @@ def update_joy_displacement(my_joy, e2):
 
             with my_lock:
                 joy_moved = True        # This is a flag to indicate Joystick is displaced from rest position.
+                joy_measurement_ts = measurement_time
                 change_aperture = axis_y
                 change_pre_shape = axis_x
 
@@ -135,6 +137,7 @@ def move_reflex_to_goal_positions(palm,e2):
             aper_disp = change_aperture
             pre_disp = change_pre_shape
             move_servo = joy_moved
+            joy_ts = joy_measurement_ts
 
         command_time = datetime.now()
 
@@ -144,9 +147,12 @@ def move_reflex_to_goal_positions(palm,e2):
             # Sending the displacement to move_fingers in reflex.py to process
             servo_gp = palm.move_fingers(aper_disp,pre_disp)
 
+            if record_displacement:
+                displacement_file_object.write_data(str(joy_ts)+","+str(aper_disp)+","+
+                                                    str(pre_disp)+","+str(command_time)+","+
+                                                    str(servo_gp).strip("[]")+'\n')
+
             with my_lock:
-                if record_displacement:
-                    displacement_file_object.write_data(str(command_time)+": "+str(servo_gp).strip("[]")+'\n')
                 joy_moved = False
                 my_logger.info('Thread Reflex - Resetting Joy Displacement Flag to {}'.format(joy_moved))
 
@@ -337,6 +343,7 @@ if __name__ == '__main__':
                 elif button == 5:
                     with my_lock:
                         record_displacement = False
+                        displacement_file_object.close_file()
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
             elif event.type == pygame.JOYHATMOTION:
