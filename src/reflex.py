@@ -144,6 +144,13 @@ class reflex_sf():
         p = self.finger[id]["servo"].read_current_position()
         return p
 
+    def servo_current_position_if_not_moving(self,id):           # checks if the servo is moving
+        if (self.finger[id]["servo"].is_moving()):
+            return 0
+        p = self.finger[id]["servo"].read_current_position()
+        return p
+
+
     # New goal position is checked to see if it is within limits. Otherwise limits become the new position
     def is_finger_within_limit(self, id, new_position):
         '''
@@ -291,7 +298,7 @@ class reflex_sf():
         new_position = p + q*increment
         if self.is_finger_within_limit(id,new_position) == 0:
             # We need to allow manual move to exceed limits but are logging the warning
-            my_logger.debug('Out of range warning!!!: Finger {} MoveFrom: {} to MoveTo: {}'.format(id,p, new_position))
+            my_logger.debug('Joint rotation mode unknown: Finger {} MoveFrom: {} to MoveTo: {}'.format(id,p, new_position))
         my_logger.debug('Finger {} MoveTo: {}'.format(id,new_position))
         self.finger[id]["servo"].set_goal_position(new_position)
         return

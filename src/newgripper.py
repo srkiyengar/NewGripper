@@ -10,8 +10,11 @@ import joystick as js
 import threading
 import time
 import data_collect as dc
+import random
 
 
+SOME_MIN_RANDOM_NUMBER = 1000
+SOME_MAX_RANDOM_NUMBER = 1999
 
 POS_ERROR = 20
 
@@ -33,14 +36,15 @@ change_pre_shape = 0.0
 # Setting the maximum cycle rate for the two threads 1)joystick loop and 2) servo command to move gripper
 joy_loop_rate = 1000    # in microsecond
 reflex_loop_rate = 16000    # in microsecond
+servo_loop_rate = 500000      # in microsecod
 
 
 
 last_time = datetime.now()
 my_lock = threading.Lock()      # shared variables between joy and reflex thread are accessed through a lock
 
-reflex_command_loop = True      # servo command thread loop control
-joy_measurement_loop = True     # joystick loop control
+all_loop = True                 # loop control for threads
+
 joy_measurement_ts = 0.0        # joystick displacement measurement timestamp
 joy_moved = False               # This is to restrict logging to logger only when there is a change in displacement
 
@@ -48,22 +52,14 @@ record_displacement = False     # When to record values
 
 
 
-def stop_joy_loop():
+def stop_all_thread():
     '''
-    This will set the control to false and the joy thread will stop
+    This will set the control to false and the threads will stop
     :return:
     '''
-    global joy_measurement_loop
-    joy_measurement_loop = False
-
-
-def stop_reflex_loop():
-    '''
-    This will set the control to false and the Reflex servo command thread will stop
-    :return:
-    '''
-    global reflex_command_loop
-    reflex_command_loop = False
+    global all_loop
+    time.sleep(1)
+    all_loop = False
 
 
 
@@ -78,7 +74,7 @@ def update_joy_displacement(my_joy, e2):
     last_joy_time = last_time
     counter = 1
     global joy_moved, change_aperture, change_pre_shape, joy_measurement_ts
-    while joy_measurement_loop:
+    while all_loop:
         e2.wait()       # This is used to pause the thread in case we want to calibrate the gripper
         present_time = datetime.now()
         delta_t = present_time - last_joy_time
@@ -122,7 +118,8 @@ def move_reflex_to_goal_positions(palm,e2):
     global last_time, joy_moved
     last_reflex_time = last_time
 
-    while reflex_command_loop:
+    previous_command_time = 0
+    while all_loop:
         e2.wait()       # This is used to pause the thread in case we want to calibrate the gripper
         present_time = datetime.now()
         delta_t = present_time - last_reflex_time
@@ -138,6 +135,7 @@ def move_reflex_to_goal_positions(palm,e2):
             pre_disp = change_pre_shape
             move_servo = joy_moved
             joy_ts = joy_measurement_ts
+            collect_data = record_displacement
 
         command_time = datetime.now()
 
@@ -145,20 +143,76 @@ def move_reflex_to_goal_positions(palm,e2):
             my_logger.info('Thread Reflex Counter: {} - Time: {} Aperture disp {} Pre-shape disp'.
                            format(counter, command_time, aper_disp,pre_disp))
             # Sending the displacement to move_fingers in reflex.py to process
-            servo_gp = palm.move_fingers(aper_disp,pre_disp)
-
-            if record_displacement:
-                displacement_file_object.write_data(str(joy_ts)+","+str(aper_disp)+","+
-                                                    str(pre_disp)+","+str(command_time)+","+
-                                                    str(servo_gp).strip("[]")+'\n')
-
             with my_lock:
+                servo_gp = palm.move_fingers(aper_disp,pre_disp)
+                if collect_data:
+                    v = palm.servo_current_position_if_not_moving(1)
+                    c_diff = command_time - previous_command_time
+                    c_diff_micro= c_diff.seconds*1000000+c_diff.microseconds
+                    '''
+                    my_data_file.write_data(str(command_time)+","+str(previous_command_time)+","+
+                                            str(c_diff.seconds)+","+str(c_diff.microseconds)+'\n')
+                    '''
+                    my_data_file.write_data(str(joy_ts)+","+str(aper_disp)+","+
+                                                    str(pre_disp)+","+str(command_time)+","+str(c_diff_micro)+","+
+                                                    str(servo_gp).strip("[]")+"," + str(v)+'\n')
                 joy_moved = False
                 my_logger.info('Thread Reflex - Resetting Joy Displacement Flag to {}'.format(joy_moved))
 
         counter += 1
+        previous_command_time = command_time
         last_reflex_time = present_time
     my_logger.info('Exit Reflex thread')
+
+def record_servo_position(palm,e2):
+
+    '''
+    This will independantly record the servo position; The idea is to identify the time at which aperture = minimum.
+    sufficient to grip an object. It should alos provide the aperture position
+    :param palm:
+    :param e2:
+    :return:
+    '''
+    counter = 1
+    global last_time
+    last_loop_time = last_time
+    # previous_command_time = last_time
+    while all_loop:
+        e2.wait()       # This is used to pause the thread in case we want to calibrate the gripper
+        present_time = datetime.now()
+        delta_t = present_time - last_loop_time
+        delta_t = delta_t.seconds*1000000 + delta_t.microseconds
+
+        if (delta_t < servo_loop_rate):
+            ndelay = servo_loop_rate - delta_t
+            ndelay = ndelay/1000000.0
+            my_logger.info('Should wait {}'.format(ndelay))
+            time.sleep(ndelay)
+
+        with my_lock:
+            record_servo = joy_moved
+            collect_servo_position = record_displacement
+
+        if record_servo:
+            with my_lock:
+                command_time = datetime.now()
+                v = palm.servo_current_position_if_not_moving(1)
+                if collect_servo_position:
+                    '''
+                    diff = command_time-previous_command_time
+                    val = (diff.seconds*1000000 + diff.microseconds)/1000
+                    my_servo_file.write_data("Present Time: {} - Last Loop Time: {}\n".
+                                             format(present_time,last_loop_time))
+                    my_servo_file.write_data("Command time: {} - Previous Command Time: {}\n".
+                                             format(command_time,previous_command_time))
+                    my_servo_file.write_data(str(command_time)+": "+str(v)+ " Diff: "+str(val)  +"\n")
+                    '''
+                    my_servo_file.write_data(str(command_time)+": "+str(v)+"\n")
+                # previous_command_time = command_time
+        counter += 1
+        last_loop_time = present_time
+    my_logger.info('Exit servo thread')
+
 
 if __name__ == '__main__':
 
@@ -238,6 +292,8 @@ if __name__ == '__main__':
     key_pressed = 0     # key press and release will happen one after another
     key_released = 0
 
+    file_ring={}        # to make sure we close any file created only if it is not closed
+
     # Calibration
     while calibrate is False:
         screen.fill(WHITE)
@@ -290,25 +346,29 @@ if __name__ == '__main__':
     # preparing the two threads that will run
     get_goal_position_thread = threading.Thread(target = update_joy_displacement,args=(my_joy,e2))
     set_goal_position_thread = threading.Thread(target = move_reflex_to_goal_positions, args=(palm,e2))
+    #get_servo_position_thread = threading.Thread(target = record_servo_position, args=(palm,e2))
 
     # Two threads started
     get_goal_position_thread.start()
     set_goal_position_thread.start()
-
+    #get_servo_position_thread.start()
 
 
 
     # The main loop that examines for other UI actions including Joy button/HatLoop until the user clicks the close button.
     done = False
-
+    my_rand = some_random_number = random.randrange(SOME_MIN_RANDOM_NUMBER,SOME_MAX_RANDOM_NUMBER)
     while done is False:
         screen.fill(WHITE)
         textPrint.reset()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
-                stop_joy_loop()
-                stop_reflex_loop()
+                stop_all_thread()
+                time.sleep(0.5)
+                palm.move_to_rest_position()
+                gp_servo = palm.read_palm_servo_positions()
+                my_logger.info("Finger moved back to Rest Positions {}".format(gp_servo))
             elif event.type == pygame.KEYDOWN:
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
@@ -336,14 +396,23 @@ if __name__ == '__main__':
                     my_logger.info("Setting Event Flag")
                     e2.set()
                 elif button == 4:
-                    my_file = dc.displacement_file()
+                    my_data_file = dc.displacement_file(my_rand)
+                    file_ring[my_data_file.filename]=1
+                    my_servo_file = dc.servo_position_file(my_rand,my_data_file.get_file_prefix())
+                    file_ring[my_servo_file.filename]=1
                     with my_lock:
                         record_displacement = True
-                        displacement_file_object = my_file
+                    my_rand += 1
                 elif button == 5:
                     with my_lock:
-                        record_displacement = False
-                        displacement_file_object.close_file()
+                        if (record_displacement == True):   # only when button was previously pressed
+                            if(file_ring[my_data_file.filename]== 1):
+                                my_data_file.close_file()
+                                file_ring[my_data_file.filename]=0
+                            if(file_ring[my_servo_file.filename]== 1):
+                                my_servo_file.close_file()
+                                file_ring[my_servo_file.filename]=0
+                            record_displacement = False
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
             elif event.type == pygame.JOYHATMOTION:
