@@ -15,6 +15,7 @@ class displacement_file():
         file_prefix = str(datetime.now())[:16]
         self.prefix = file_prefix
         self.filename = "Servo-displacement-"+file_prefix+"-"+str(rand)
+        self.id = str(rand)
         try:
             self.fp = open(self.filename,"w")
             my_logger.info('file {} created'.format(self.filename))

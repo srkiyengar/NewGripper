@@ -11,6 +11,7 @@ import threading
 import time
 import data_collect as dc
 import random
+import tcp_client as tc
 
 
 SOME_MIN_RANDOM_NUMBER = 1000
@@ -207,7 +208,8 @@ def record_servo_position(palm,e2):
                                              format(command_time,previous_command_time))
                     my_servo_file.write_data(str(command_time)+": "+str(v)+ " Diff: "+str(val)  +"\n")
                     '''
-                    my_servo_file.write_data(str(command_time)+": "+str(v)+"\n")
+                    #uncomment the line below if file needs to be written to.
+                    #my_servo_file.write_data(str(command_time)+": "+str(v)+"\n")
                 # previous_command_time = command_time
         counter += 1
         last_loop_time = present_time
@@ -224,6 +226,27 @@ if __name__ == '__main__':
     handler.setFormatter(formatter)
     my_logger.addHandler(handler)
     # end of logfile preparation Log levels are debug, info, warn, error, critical
+
+    #setup labview connection
+    my_connector = tc.command_labview('192.168.10.2', 5000)
+    if my_connector.connected == 1:
+        my_clock_sync = tc.sync_time(my_connector,5)
+        my_clock_sync.get_time_diff()
+        transit_time = my_clock_sync.transit_time
+        #my_dataset.set_transit_time(transit_time)
+        if(my_clock_sync.transit_error == 0):
+            difference = my_clock_sync.clock_difference
+            #my_dataset.set_clock_difference(difference)
+        else:
+            my_logger.info("Clock Difference cannot be computed as transit time (micros): {} above 2ms".format(transit_time))
+        # raise RuntimeError('Transit Time in milliseconds too high to sync clock', (transit_time/1000),'\n')
+        labview_connection = True
+    else:
+        labview_connection = False
+
+
+
+
 
     #Create Palm object
     palm = reflex.reflex_sf() # Reflex object ready
@@ -386,7 +409,7 @@ if __name__ == '__main__':
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
-                if button == 1:
+                if button == 3:
                     e2.clear()
                     time.sleep(1)
                     palm.move_to_rest_position()
@@ -395,23 +418,39 @@ if __name__ == '__main__':
                     time.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
-                elif button == 4:
-                    my_data_file = dc.displacement_file(my_rand)
-                    file_ring[my_data_file.filename]=1
-                    my_servo_file = dc.servo_position_file(my_rand,my_data_file.get_file_prefix())
-                    file_ring[my_servo_file.filename]=1
+                elif button == 1:
+                    #Close the previous file if it exists
                     with my_lock:
-                        record_displacement = True
-                    my_rand += 1
+                        if (record_displacement == True):   # only when button was previously pressed
+                            if(file_ring[my_data_file.filename]== 1):
+                                my_data_file.close_file()
+                                file_ring[my_data_file.filename]=0
+                                if labview_connection:
+                                    my_connector.stop_collecting()
+                        else:
+                            record_displacement = True
+                        my_data_file = dc.displacement_file(my_rand)
+                        file_ring[my_data_file.filename]=1
+                        my_rand += 1
+                    if labview_connection:
+                        my_connector.start_collecting(my_data_file.id)
+                    '''
+                        my_servo_file = dc.servo_position_file(my_rand,my_data_file.get_file_prefix())
+                        file_ring[my_servo_file.filename]=1
+                    '''
+                #button 5 is not necessary but left it, in case
                 elif button == 5:
                     with my_lock:
                         if (record_displacement == True):   # only when button was previously pressed
                             if(file_ring[my_data_file.filename]== 1):
                                 my_data_file.close_file()
                                 file_ring[my_data_file.filename]=0
+                                my_connector.stop_collecting()
+                            '''
                             if(file_ring[my_servo_file.filename]== 1):
                                 my_servo_file.close_file()
                                 file_ring[my_servo_file.filename]=0
+                            '''
                             record_displacement = False
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
@@ -437,3 +476,4 @@ if __name__ == '__main__':
 
         # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
         clock.tick(SCAN_RATE)
+    my_connector.destroy()
