@@ -227,27 +227,6 @@ if __name__ == '__main__':
     my_logger.addHandler(handler)
     # end of logfile preparation Log levels are debug, info, warn, error, critical
 
-    #setup labview connection
-    my_connector = tc.command_labview('192.168.10.2', 5000)
-    if my_connector.connected == 1:
-        my_clock_sync = tc.sync_time(my_connector,5)
-        my_clock_sync.get_time_diff()
-        transit_time = my_clock_sync.transit_time
-        #my_dataset.set_transit_time(transit_time)
-        if(my_clock_sync.transit_error == 0):
-            difference = my_clock_sync.clock_difference
-            #my_dataset.set_clock_difference(difference)
-        else:
-            my_logger.info("Clock Difference cannot be computed as transit time (micros): {} above 2ms".format(transit_time))
-        # raise RuntimeError('Transit Time in milliseconds too high to sync clock', (transit_time/1000),'\n')
-        labview_connection = True
-    else:
-        labview_connection = False
-
-
-
-
-
     #Create Palm object
     palm = reflex.reflex_sf() # Reflex object ready
     my_logger.info('Reflex_SF object created')
@@ -358,6 +337,8 @@ if __name__ == '__main__':
         textPrint.Screenprint(screen, "Press c when calibration is complete")
         textPrint.Yspace()
         textPrint.Screenprint(screen,"Caps Lock Key set to {}".format(key_ring['301']))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"NDI connection is {} ".format(reflex.labview_connected))
         # Go ahead and update the screen with what we've drawn.
         pygame.display.flip()
 
@@ -365,6 +346,31 @@ if __name__ == '__main__':
         clock.tick(SCAN_RATE)
 
     # Calibration completed
+
+    ndi_measurement = reflex.labview_connected
+
+    #setup labview connection
+    if(ndi_measurement):
+        my_connector = tc.command_labview('192.168.10.2', 5000)
+        if my_connector.connected == 1:
+            my_clock_sync = tc.sync_time(my_connector,5)
+            my_clock_sync.get_time_diff()
+            transit_time = my_clock_sync.transit_time
+            #my_dataset.set_transit_time(transit_time)
+            if(my_clock_sync.transit_error == 0):
+                difference = my_clock_sync.clock_difference
+                #my_dataset.set_clock_difference(difference)
+            else:
+                my_logger.info(
+                    "Clock Difference cannot be computed as transit time (micros): {} above 2ms".format(transit_time))
+                    # raise RuntimeError('Transit Time in milliseconds too high to sync clock', (transit_time/1000),'\n')
+            labview_connection = True
+            my_logger.info("Labview connection success")
+        else:
+            labview_connection = False
+            my_logger.info("Labview connection failure")
+
+
 
     # preparing the two threads that will run
     get_goal_position_thread = threading.Thread(target = update_joy_displacement,args=(my_joy,e2))
@@ -452,6 +458,7 @@ if __name__ == '__main__':
                                 file_ring[my_servo_file.filename]=0
                             '''
                             record_displacement = False
+
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
             elif event.type == pygame.JOYHATMOTION:
@@ -465,6 +472,8 @@ if __name__ == '__main__':
         textPrint.Screenprint(screen, "When ready to Quit, close the screen")
         textPrint.Yspace()
         textPrint.Screenprint(screen,"Caps Lock Key Pressed {}".format(key_ring['301']))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"NDI connection is {} ".format(ndi_measurement))
         #textPrint.indent()
         #textPrint.Yspace()
         #textPrint.Screenprint(screen, "Num Lock Key Released: {}".format(key_released))
@@ -476,4 +485,5 @@ if __name__ == '__main__':
 
         # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
         clock.tick(SCAN_RATE)
-    my_connector.destroy()
+    if(ndi_measurement):
+        my_connector.destroy()

@@ -10,6 +10,7 @@ MOVE_TICKS = 130
 MOVE_TICKS_SERVO4 = 70
 POS_ERROR = 20
 
+labview_connected = False
 
 CALIBRATION_TICKS = 50
 
@@ -477,7 +478,7 @@ class key_reflex_controller:
 
     def __init__(self, grabber):
         self.palm = grabber
-        self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0,'122':0}
+        self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0,'122':0,'108':0}
         # Letter-Integer q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102,c-99
         # When key value is captured it can be turned into string for the dict.
         # All keys are set to 0 and become 1 if key is pressed and go to 0 when released.
@@ -493,6 +494,7 @@ class key_reflex_controller:
         self.keys[str(key)] = 0
 
     def process_key_actions(self):  # Act based on Buttons
+        global labview_connected
         k = 0       # return 1 when processing letter c
         if self.keys['101'] == 1:   # letter e
             sid = 3
@@ -552,6 +554,13 @@ class key_reflex_controller:
             fp.close()
             self.reset_key_press(99)
             k = 1
+        elif self.keys['108'] == 1: # letter l
+            if (labview_connected):
+                my_logger.info("We are going run Gripper without NDI polaris")
+                labview_connected = False
+            else:
+                my_logger.info("We are going run Gripper with NDI polaris")
+                labview_connected = True
         elif self.keys['122'] == 1:  # letter z
             curr_pos = self.palm.read_palm_servo_positions()
             my_logger.info("Current Positions [{}, {}, {}, {}".format
