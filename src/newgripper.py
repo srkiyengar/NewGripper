@@ -17,6 +17,17 @@ import tcp_client as tc
 SOME_MIN_RANDOM_NUMBER = 1000
 SOME_MAX_RANDOM_NUMBER = 1999
 
+'''
+The default model for Joystick displacement for moving servo is 1. Here a non-zero joystick displacement will
+create a new goal position for the reflex at the sampling rate (reflex_loop_rate) as long as the program is running.
+Other option being considered is value 0 where the joystick displacement is mapped to a position in the span of the
+finger movement. The lower position (start position) is set by calibration and the upper position is set by the
+MAX_FINGER_MOVEMENT which is set to an approximate valuse corresponding the to span. The fingers are restricted to
+moving within this limit.
+
+'''
+METHOD = 1
+
 POS_ERROR = 20
 
 #logger
@@ -49,7 +60,7 @@ all_loop = True                 # loop control for threads
 joy_measurement_ts = 0.0        # joystick displacement measurement timestamp
 joy_moved = False               # This is to restrict logging to logger only when there is a change in displacement
 
-record_displacement = False     # When to record values
+record_displacement = False     # When to record finger position with time for gripping
 
 
 
@@ -145,6 +156,7 @@ def move_reflex_to_goal_positions(palm,e2):
                            format(counter, command_time, aper_disp,pre_disp))
             # Sending the displacement to move_fingers in reflex.py to process
             with my_lock:
+
                 servo_gp = palm.move_fingers(aper_disp,pre_disp)
                 if collect_data:
                     v = palm.servo_current_position_if_not_moving(1)
@@ -296,6 +308,7 @@ if __name__ == '__main__':
 
     file_ring={}        # to make sure we close any file created only if it is not closed
 
+    method = METHOD
     # Calibration
     while calibrate is False:
         screen.fill(WHITE)
@@ -316,7 +329,10 @@ if __name__ == '__main__':
             else:
                 pass # ignoring other non-logitech joystick event types
 
-        textPrint.Screenprint(screen, "You can only after Calibration; Caps Lock should be 1")
+        textPrint.Screenprint(screen, "Caps Lock should be 1 to accept any of the keys")
+        textPrint.Yspace()
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"Caps Lock Key set to {}".format(key_ring['301']))
         textPrint.Yspace()
         textPrint.Screenprint(screen, "Finger 1 - Press 'q' to move up")
         textPrint.Yspace()
@@ -334,11 +350,17 @@ if __name__ == '__main__':
         textPrint.Yspace()
         textPrint.Screenprint(screen, "Pre Shape - Press 'f' to move away")
         textPrint.Yspace()
-        textPrint.Screenprint(screen, "Press c when calibration is complete")
+        textPrint.Screenprint(screen, "Pre Shape - Press 'l' to toggle NDI measurement")
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"Caps Lock Key set to {}".format(key_ring['301']))
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"NDI connection is {} ".format(reflex.labview_connected))
+        textPrint.Screenprint(screen,"NDI connection is {} ".format(reflex.ndi_measurement))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"Joystick control of gripper method is {} ".format(reflex.control_method))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Is labview program running? if NDI connection is True")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Press 'c' when calibration is complete")
+
         # Go ahead and update the screen with what we've drawn.
         pygame.display.flip()
 
@@ -347,10 +369,10 @@ if __name__ == '__main__':
 
     # Calibration completed
 
-    ndi_measurement = reflex.labview_connected
+    ndi = reflex.ndi_measurement
 
     #setup labview connection
-    if(ndi_measurement):
+    if(ndi):
         my_connector = tc.command_labview('192.168.10.2', 5000)
         if my_connector.connected == 1:
             my_clock_sync = tc.sync_time(my_connector,5)
@@ -364,7 +386,7 @@ if __name__ == '__main__':
                 my_logger.info(
                     "Clock Difference cannot be computed as transit time (micros): {} above 2ms".format(transit_time))
                     # raise RuntimeError('Transit Time in milliseconds too high to sync clock', (transit_time/1000),'\n')
-            labview_connection = True
+            labview_connection = True       # with labview running, this program has established  tcp connection
             my_logger.info("Labview connection success")
         else:
             labview_connection = False
@@ -425,39 +447,41 @@ if __name__ == '__main__':
                     my_logger.info("Setting Event Flag")
                     e2.set()
                 elif button == 1:
-                    #Close the previous file if it exists
-                    with my_lock:
-                        if (record_displacement == True):   # only when button was previously pressed
-                            if(file_ring[my_data_file.filename]== 1):
-                                my_data_file.close_file()
-                                file_ring[my_data_file.filename]=0
-                                if labview_connection:
-                                    my_connector.stop_collecting()
-                        else:
-                            record_displacement = True
-                        my_data_file = dc.displacement_file(my_rand)
-                        file_ring[my_data_file.filename]=1
-                        my_rand += 1
-                    if labview_connection:
-                        my_connector.start_collecting(my_data_file.id)
+                    if ndi:
+                        with my_lock:
+                            # Close the previous file if it exists
+                            if (record_displacement == True):   # only when button was previously pressed
+                                if(file_ring[my_data_file.filename]== 1):
+                                    my_data_file.close_file()
+                                    file_ring[my_data_file.filename]=0
+                                    if labview_connection:
+                                        my_connector.stop_collecting()
+                            else:
+                                record_displacement = True
+                            my_data_file = dc.displacement_file(my_rand)
+                            file_ring[my_data_file.filename]=1
+                            my_rand += 1
+                        if labview_connection:
+                            my_connector.start_collecting(my_data_file.id)
                     '''
                         my_servo_file = dc.servo_position_file(my_rand,my_data_file.get_file_prefix())
                         file_ring[my_servo_file.filename]=1
                     '''
                 #button 5 is not necessary but left it, in case
                 elif button == 5:
-                    with my_lock:
-                        if (record_displacement == True):   # only when button was previously pressed
-                            if(file_ring[my_data_file.filename]== 1):
-                                my_data_file.close_file()
-                                file_ring[my_data_file.filename]=0
-                                my_connector.stop_collecting()
-                            '''
-                            if(file_ring[my_servo_file.filename]== 1):
-                                my_servo_file.close_file()
-                                file_ring[my_servo_file.filename]=0
-                            '''
-                            record_displacement = False
+                    if ndi:
+                        with my_lock:
+                            if (record_displacement == True):   # only when button was previously pressed
+                                if(file_ring[my_data_file.filename]== 1):
+                                    my_data_file.close_file()
+                                    file_ring[my_data_file.filename]=0
+                                    my_connector.stop_collecting()
+                                '''
+                                if(file_ring[my_servo_file.filename]== 1):
+                                    my_servo_file.close_file()
+                                    file_ring[my_servo_file.filename]=0
+                                '''
+                                record_displacement = False
 
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
@@ -473,7 +497,12 @@ if __name__ == '__main__':
         textPrint.Yspace()
         textPrint.Screenprint(screen,"Caps Lock Key Pressed {}".format(key_ring['301']))
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"NDI connection is {} ".format(ndi_measurement))
+        textPrint.Screenprint(screen," Method of Joy displacement control Of Gripper")
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"(by Velocity if 1 or by displacement if 0) =  {}".
+                              format(reflex.control_method))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"NDI connection is {} ".format(ndi))
         #textPrint.indent()
         #textPrint.Yspace()
         #textPrint.Screenprint(screen, "Num Lock Key Released: {}".format(key_released))
@@ -485,5 +514,5 @@ if __name__ == '__main__':
 
         # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
         clock.tick(SCAN_RATE)
-    if(ndi_measurement):
+    if(ndi):
         my_connector.destroy()
