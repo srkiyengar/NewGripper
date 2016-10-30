@@ -6,6 +6,7 @@ import logging
 
 
 
+
 MOVE_TICKS = 130
 MOVE_TICKS_SERVO4 = 70
 POS_ERROR = 20
@@ -344,45 +345,52 @@ class reflex_sf():
             self.finger[i]["GP"] = gp[i]
         return
 
-    def move_fingers_velocity_method(self,aperture_disp, pre_shape_disp):
+    def move_fingers_velocity_method(self,my_joy,displacement_y, displacement_x):
         F=[]
-        # calculating new goal positions
-        aperture_disp = aperture_disp*MOVE_TICKS
-        for i in range(1, 4, 1):      # only setting servo 1, 2, 3 for aperture change
-            value = self.finger[i]["GP"]
-            new_value = int(value + (aperture_disp*self.finger[i]["rotation"]))
-            np = self.is_finger_within_limit(i, new_value)
-            if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
-                my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
-                self.finger[i]["servo"].set_goal_position(np)
-                self.finger[i]["GP"] = np
-                F.append(np)
-            else:
-                raise RuntimeError('servo finger joint rotation error\n')
+        # discarding deadzone
+        if displacement_y != 0.0:
+            displacement_y = my_joy.get_displacement_outside_deadzone(1,displacement_y)
+            if displacement_y != 0.0:
+                move_servo = displacement_y*MOVE_TICKS
+                # calculation new goal position after taking the rotation direction of the servo into consideration
+                for i in range(1, 4, 1):      # only setting servo 1, 2, 3 (finger movement)
+                    value = self.finger[i]["GP"]
+                    new_value = int(value + (move_servo*self.finger[i]["rotation"]))
+                    np = self.is_finger_within_limit(i, new_value)
+                    if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+                        my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
+                        self.finger[i]["servo"].set_goal_position(np)
+                        self.finger[i]["GP"] = np
+                        F.append(np)
+                    else:
+                        raise RuntimeError('servo finger joint rotation error\n')
 
 
-        value = self.finger[4]["GP"]
-        new_value = int(value + (pre_shape_disp*self.finger[4]["rotation"]*MOVE_TICKS_SERVO4))
-        np = self.is_finger_within_limit(4, new_value)
-        if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
-            my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
-            self.finger[4]["servo"].set_goal_position(np)
-            self.finger[4]["GP"] = np
-            F.append(np)
-        else:
-            raise RuntimeError('servo finger joint rotation error\n')
+        # for servo 4 which decides the pre-shape space between Finger 1 and Finger 2
+        if displacement_x != 0.0:
+            displacement_x = my_joy.get_displacement_outside_deadzone(0,displacement_x)
+            if displacement_x != 0.0:
+                move_servo4 = displacement_x*MOVE_TICKS_SERVO4
+                value = self.finger[4]["GP"]
+                new_value = int(value + (move_servo4*self.finger[4]["rotation"]))
+                np = self.is_finger_within_limit(4, new_value)
+                if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+                    my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
+                    self.finger[4]["servo"].set_goal_position(np)
+                    self.finger[4]["GP"] = np
+                    F.append(np)
+                else:
+                    raise RuntimeError('servo finger joint rotation error\n')
         return F
 
-    def move_fingers_displacement_method(self,aper_disp,pre_shape_disp):
+    def move_fingers_displacement_method(self,y_position,x_position):
         F=[]
         # calculating new goal positions
-        aper_disp = (aper_disp+1)/2      #shifting -1 to +1 to 0 to 1
-        pre_shape_disp = (pre_shape_disp+1)/2
+        y_position = (y_position+1)/2      #shifting -1 to +1 to 0 to 1
+        x_position = (x_position+1)/2
 
         for i in range(1, 4, 1):      # only setting servo 1, 2, 3 for aperture change
-            #value = self.finger[i]["GP"]
-            #new_value = int(value + (aperture_disp*self.finger[i]["rotation"]))
-            displacement = int(MAX_FINGER_MOVEMENT*aper_disp*self.finger[i]["rotation"])
+            displacement = int(MAX_FINGER_MOVEMENT*y_position*self.finger[i]["rotation"])
             new_value = self.finger[i]["lower_limit"] + displacement
             np = self.is_finger_within_limit(i, new_value)
             if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
@@ -393,9 +401,10 @@ class reflex_sf():
             else:
                 raise RuntimeError('servo finger joint rotation error\n')
 
+        my_logger.info("++++>Joy Y-Axis Displacement: {}, Goal position: {}".format(y_position, F))
 
         #value = self.finger[4]["GP"]
-        displacement = int(MAX_PRESHAPE_MOVEMENT*pre_shape_disp*self.finger[4]["rotation"])
+        displacement = int(MAX_PRESHAPE_MOVEMENT*x_position*self.finger[4]["rotation"])
         new_value = self.finger[4]["lower_limit"] + displacement
         np = self.is_finger_within_limit(4, new_value)
         if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
@@ -408,12 +417,12 @@ class reflex_sf():
         return F
 
 
-    def move_fingers(self,aper_disp,pre_shape_disp):
+    def move_fingers(self,my_joy,y_disp,x_disp):
 
         if control_method == 1:
-            self.move_fingers_velocity_method(aper_disp,pre_shape_disp)
+            self.move_fingers_velocity_method(my_joy,y_disp,x_disp)
         elif control_method == 0:
-            self.move_fingers_displacement_method(aper_disp,pre_shape_disp)
+            self.move_fingers_displacement_method(y_disp,x_disp)
 
 
 class joy_reflex_controller:

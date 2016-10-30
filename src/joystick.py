@@ -39,7 +39,16 @@ class ExtremeProJoystick():
         :param k is the Axis identifier:
         :return: is a float which represents displacement magnitude and direction.
         """
-        displacement = self.joystick.get_axis(k)
+        return self.joystick.get_axis(k)
+
+
+    def get_displacement_outside_deadzone(self,k,displacement):
+        """
+        This function zeroes any displacement in the deadzone
+        :param k is the Axis identifier:
+        :param displacement is the joystick displacement in axis k
+        :return: is the displacement magnitude and direction after zeroing deadzone
+        """
         if displacement > 0:
             if displacement <= self.max_val[k]:
                 displacement = 0    # ignoring deadzone

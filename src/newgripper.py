@@ -41,8 +41,8 @@ WHITE    = ( 255, 255, 255)
 SCAN_RATE = 20                    #1 (one) second divided by scan rate is the loop checking if the main program should stop
 
 
-change_aperture = 0.0
-change_pre_shape = 0.0
+joy_y_position = 0.0
+joy_x_position = 0.0
 
 
 # Setting the maximum cycle rate for the two threads 1)joystick loop and 2) servo command to move gripper
@@ -85,7 +85,7 @@ def update_joy_displacement(my_joy, e2):
     '''
     last_joy_time = last_time
     counter = 1
-    global joy_moved, change_aperture, change_pre_shape, joy_measurement_ts
+    global joy_moved, joy_y_position, joy_x_position, joy_measurement_ts
     while all_loop:
         e2.wait()       # This is used to pause the thread in case we want to calibrate the gripper
         present_time = datetime.now()
@@ -108,20 +108,21 @@ def update_joy_displacement(my_joy, e2):
             with my_lock:
                 joy_moved = True        # This is a flag to indicate Joystick is displaced from rest position.
                 joy_measurement_ts = measurement_time
-                change_aperture = axis_y
-                change_pre_shape = axis_x
+                joy_y_position = axis_y
+                joy_x_position = axis_x
 
             my_logger.info('Joy displacement flag is {} '.format(joy_moved))
             counter += 1
 
-        last_joy_time = present_time
+            last_joy_time = present_time
 
 
-def move_reflex_to_goal_positions(palm,e2):
+def move_reflex_to_goal_positions(my_joy,palm,e2):
     '''
     This is to move the Reflex to joy_disp position at the rate set by
     'reflex_loop_rate'
     :type e2: event object
+    :param my_joy: Joystick object
     :param palm: This is the reflex object in the main e2: event communication between main and the threads especially
     for calibrating the joystick.
     :return:
@@ -143,8 +144,8 @@ def move_reflex_to_goal_positions(palm,e2):
             time.sleep(delay)
 
         with my_lock:
-            aper_disp = change_aperture
-            pre_disp = change_pre_shape
+            y_displacement = joy_y_position
+            x_displacement = joy_x_position
             move_servo = joy_moved
             joy_ts = joy_measurement_ts
             collect_data = record_displacement
@@ -152,12 +153,12 @@ def move_reflex_to_goal_positions(palm,e2):
         command_time = datetime.now()
 
         if move_servo:
-            my_logger.info('Thread Reflex Counter: {} - Time: {} Aperture disp {} Pre-shape disp'.
-                           format(counter, command_time, aper_disp,pre_disp))
+            my_logger.info('Thread Reflex Counter: {} - Time: {} Aperture (Y) disp {} Pre-shape (X) disp'.
+                           format(counter, command_time, y_displacement,x_displacement))
             # Sending the displacement to move_fingers in reflex.py to process
             with my_lock:
 
-                servo_gp = palm.move_fingers(aper_disp,pre_disp)
+                servo_gp = palm.move_fingers(my_joy,y_displacement,x_displacement)
                 if collect_data:
                     v = palm.servo_current_position_if_not_moving(1)
                     c_diff = command_time - previous_command_time
@@ -166,8 +167,8 @@ def move_reflex_to_goal_positions(palm,e2):
                     my_data_file.write_data(str(command_time)+","+str(previous_command_time)+","+
                                             str(c_diff.seconds)+","+str(c_diff.microseconds)+'\n')
                     '''
-                    my_data_file.write_data(str(joy_ts)+","+str(aper_disp)+","+
-                                                    str(pre_disp)+","+str(command_time)+","+str(c_diff_micro)+","+
+                    my_data_file.write_data(str(joy_ts)+","+str(y_displacement)+","+
+                                                    str(x_displacement)+","+str(command_time)+","+str(c_diff_micro)+","+
                                                     str(servo_gp).strip("[]")+"," + str(v)+'\n')
                 joy_moved = False
                 my_logger.info('Thread Reflex - Resetting Joy Displacement Flag to {}'.format(joy_moved))
@@ -396,7 +397,7 @@ if __name__ == '__main__':
 
     # preparing the two threads that will run
     get_goal_position_thread = threading.Thread(target = update_joy_displacement,args=(my_joy,e2))
-    set_goal_position_thread = threading.Thread(target = move_reflex_to_goal_positions, args=(palm,e2))
+    set_goal_position_thread = threading.Thread(target = move_reflex_to_goal_positions, args=(my_joy,palm,e2))
     #get_servo_position_thread = threading.Thread(target = record_servo_position, args=(palm,e2))
 
     # Two threads started
@@ -419,7 +420,7 @@ if __name__ == '__main__':
                 time.sleep(0.5)
                 palm.move_to_lower_limits()
                 gp_servo = palm.read_palm_servo_positions()
-                my_logger.info("Finger moved back to Lower Limit Positions {}".format(gp_servo))
+                my_logger.info("Finger moved back to Lower Limit Positions {}".format(gp_servo[1:]))
             elif event.type == pygame.KEYDOWN:
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
@@ -437,7 +438,10 @@ if __name__ == '__main__':
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
-                if button == 1:
+                if button == 0:
+                    gp_servo = palm.read_palm_servo_positions()
+                    my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
+                elif button == 1:
                     if ndi:
                         with my_lock:
                             # Close the previous file if it exists
@@ -464,7 +468,7 @@ if __name__ == '__main__':
                     time.sleep(1)
                     palm.move_to_lower_limits()
                     gp_servo = palm.read_palm_servo_positions()
-                    my_logger.info("Finger Lower Limit Positions {}".format(gp_servo))
+                    my_logger.info("Finger Lower Limit Positions {}".format(gp_servo[1:]))
                     time.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
