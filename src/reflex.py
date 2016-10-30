@@ -351,11 +351,11 @@ class reflex_sf():
         if displacement_y != 0.0:
             displacement_y = my_joy.get_displacement_outside_deadzone(1,displacement_y)
             if displacement_y != 0.0:
-                move_servo = displacement_y*MOVE_TICKS
+                servo_angle = displacement_y*MOVE_TICKS
                 # calculation new goal position after taking the rotation direction of the servo into consideration
                 for i in range(1, 4, 1):      # only setting servo 1, 2, 3 (finger movement)
                     value = self.finger[i]["GP"]
-                    new_value = int(value + (move_servo*self.finger[i]["rotation"]))
+                    new_value = int(value + (servo_angle*self.finger[i]["rotation"]))
                     np = self.is_finger_within_limit(i, new_value)
                     if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
                         my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
@@ -370,9 +370,9 @@ class reflex_sf():
         if displacement_x != 0.0:
             displacement_x = my_joy.get_displacement_outside_deadzone(0,displacement_x)
             if displacement_x != 0.0:
-                move_servo4 = displacement_x*MOVE_TICKS_SERVO4
+                servo_angle4 = displacement_x*MOVE_TICKS_SERVO4
                 value = self.finger[4]["GP"]
-                new_value = int(value + (move_servo4*self.finger[4]["rotation"]))
+                new_value = int(value + (servo_angle4*self.finger[4]["rotation"]))
                 np = self.is_finger_within_limit(4, new_value)
                 if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
                     my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
@@ -390,8 +390,8 @@ class reflex_sf():
         x_position = (x_position+1)/2
 
         for i in range(1, 4, 1):      # only setting servo 1, 2, 3 for aperture change
-            displacement = int(MAX_FINGER_MOVEMENT*y_position*self.finger[i]["rotation"])
-            new_value = self.finger[i]["lower_limit"] + displacement
+            servo_angle = int(MAX_FINGER_MOVEMENT*y_position*self.finger[i]["rotation"])
+            new_value = self.finger[i]["lower_limit"] + servo_angle
             np = self.is_finger_within_limit(i, new_value)
             if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
                 my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
@@ -404,8 +404,8 @@ class reflex_sf():
         my_logger.info("++++>Joy Y-Axis Displacement: {}, Goal position: {}".format(y_position, F))
 
         #value = self.finger[4]["GP"]
-        displacement = int(MAX_PRESHAPE_MOVEMENT*x_position*self.finger[4]["rotation"])
-        new_value = self.finger[4]["lower_limit"] + displacement
+        servo_angle4 = int(MAX_PRESHAPE_MOVEMENT*x_position*self.finger[4]["rotation"])
+        new_value = self.finger[4]["lower_limit"] + servo_angle4
         np = self.is_finger_within_limit(4, new_value)
         if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
             my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
