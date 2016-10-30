@@ -417,9 +417,9 @@ if __name__ == '__main__':
                 done = True
                 stop_all_thread()
                 time.sleep(0.5)
-                palm.move_to_rest_position()
+                palm.move_to_lower_limits()
                 gp_servo = palm.read_palm_servo_positions()
-                my_logger.info("Finger moved back to Rest Positions {}".format(gp_servo))
+                my_logger.info("Finger moved back to Lower Limit Positions {}".format(gp_servo))
             elif event.type == pygame.KEYDOWN:
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
@@ -437,16 +437,7 @@ if __name__ == '__main__':
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
-                if button == 3:
-                    e2.clear()
-                    time.sleep(1)
-                    palm.move_to_rest_position()
-                    gp_servo = palm.read_palm_servo_positions()
-                    my_logger.info("Finger Rest Positions {}".format(gp_servo))
-                    time.sleep(1)
-                    my_logger.info("Setting Event Flag")
-                    e2.set()
-                elif button == 1:
+                if button == 1:
                     if ndi:
                         with my_lock:
                             # Close the previous file if it exists
@@ -467,7 +458,17 @@ if __name__ == '__main__':
                         my_servo_file = dc.servo_position_file(my_rand,my_data_file.get_file_prefix())
                         file_ring[my_servo_file.filename]=1
                     '''
-                #button 5 is not necessary but left it, in case
+                # Sends the fingers to lower limits for now
+                elif button == 3:
+                    e2.clear()
+                    time.sleep(1)
+                    palm.move_to_lower_limits()
+                    gp_servo = palm.read_palm_servo_positions()
+                    my_logger.info("Finger Lower Limit Positions {}".format(gp_servo))
+                    time.sleep(1)
+                    my_logger.info("Setting Event Flag")
+                    e2.set()
+                #button 5 helps end recoding for good where as 1 get ready for next recording
                 elif button == 5:
                     if ndi:
                         with my_lock:

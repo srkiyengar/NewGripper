@@ -11,15 +11,16 @@ MOVE_TICKS_SERVO4 = 70
 POS_ERROR = 20
 
 
-ndi_measurement = False       # meaning we are not running polaris when False
+ndi_measurement = False         # meaning we are not running polaris when False
 control_method = 1              #1 means joystick displacement moves goal position by constant*MOVE_TICKS value.
                                 #0 means joystick displacement moves goal position to a fixed value.
 
 CALIBRATION_TICKS = 50
 
 
-MAX_FINGER_MOVEMENT = 2100
-MAX_PRESHAPE_MOVEMENT = 1200
+# With lower limit set by eye during cabliration, upper limit is set by the two MAX values
+MAX_FINGER_MOVEMENT = 2100      # Fingers  1,2,3 upper limit offset from lower limit (+ or - depends on rotation).
+MAX_PRESHAPE_MOVEMENT = 1200    # space between 1 and 2
 
 MAX_SPEED = 600 # A max speed of 1023 is allowed
 
@@ -57,7 +58,7 @@ class reflex_sf():
             j = j + 1
         fp.close()
 
-        my_logger.info("Rest Positions F1-{} F2-{} F3-{} F4 {}".format
+        my_logger.info("Lower Limit Positions F1-{} F2-{} F3-{} F4 {}".format
                        (l_limits[1],l_limits[2],l_limits[3],l_limits[4]))
         self.finger = []
         self.finger.append(0) # finger starts with 1. Inserting 0 at the first list position
@@ -89,21 +90,21 @@ class reflex_sf():
             # Current position - Actual servo position determined while servo is not moving
             # Goal Position is where we want the servo to move - it starts at rest position which should be reset @ start
             # Current Location may also be updated by reading but these reads cannot be done by waiting for the servo
-
+            # ready position will be used to set a position different from the lower limit while waiting.
 
             finger_parameters = {"servo":j, "initial_position": current_pos,
                                  "moving_speed":speed,
                                  "lower_limit":l_limits[i],"upper_limit":u_limits[i],"rotation":joint_state,
-                                 "CP":current_pos, "CL":current_pos, "GP":current_pos}
+                                 "CP":current_pos, "CL":current_pos, "GP":current_pos,"rest_position":l_limits[i]}
             self.finger.append(finger_parameters)
 
-    def get_palm_rest_position(self):   #Returns a list of current lower limit
+    def get_palm_lower_limits(self):   #Returns a list of current lower limit
         rest_limits = [0,0,0,0,0]
         for i in range(1,5,1):
             rest_limits[i] = self.finger[i]["lower_limit"]
         return rest_limits
 
-    def set_palm_rest_position(self,set_limits):
+    def set_palm_lower_limits(self,set_limits):
         for i in range(1,5,1):
             val = set_limits[i]
             self.finger[i]["lower_limit"] = val
@@ -307,23 +308,23 @@ class reflex_sf():
         self.finger[id]["servo"].set_goal_position(new_position)
         return
 
-    def move_to_rest_position(self):        # checks where the servos are and sets goal positions = starting values
+    def move_to_lower_limits(self):        # checks where the servos are and sets goal positions = starting values
         current_position = self.read_palm_servo_positions()
         for i in range(1,5,1):
-            rest_position = self.finger[i]["lower_limit"]
-            my_logger.info("Moving  Servo: {} From: {} to Rest position: {}".format(i, current_position[i],rest_position))
-            self.finger[i]["servo"].set_goal_position(rest_position)
-            self.finger[i]["GP"] = rest_position
-            self.finger[i]["CP"] = rest_position
-            self.finger[i]["CL"] = rest_position
+            ll_position = self.finger[i]["lower_limit"]
+            my_logger.info("Moving  Servo: {} From: {} to Lower limits: {}".format(i, current_position[i],ll_position))
+            self.finger[i]["servo"].set_goal_position(ll_position)
+            self.finger[i]["GP"] = ll_position
+            self.finger[i]["CP"] = ll_position
+            self.finger[i]["CL"] = ll_position
         return
 
-    def get_rest_position(self):
+    def get_lower_limits(self):
         F = []
         F.append(0)
         for i in range(1,5,1):
-            rest_position = self.finger[i]["lower_limit"]
-            F.append(rest_position)
+            ll_position = self.finger[i]["lower_limit"]
+            F.append(ll_position)
         return F
 
     def get_max_position(self):
@@ -364,7 +365,7 @@ class reflex_sf():
         new_value = int(value + (pre_shape_disp*self.finger[4]["rotation"]*MOVE_TICKS_SERVO4))
         np = self.is_finger_within_limit(4, new_value)
         if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
-            my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
+            my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
             self.finger[4]["servo"].set_goal_position(np)
             self.finger[4]["GP"] = np
             F.append(np)
@@ -398,7 +399,7 @@ class reflex_sf():
         new_value = self.finger[4]["lower_limit"] + displacement
         np = self.is_finger_within_limit(4, new_value)
         if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
-            my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
+            my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
             self.finger[4]["servo"].set_goal_position(np)
             self.finger[4]["GP"] = np
             F.append(np)
@@ -489,7 +490,7 @@ class joy_reflex_controller:
                 raise IOError ("Unable to open calibration file")
 
             new_limits = self.palm.read_palm_servo_positions()
-            self.palm.set_palm_rest_position(new_limits)
+            self.palm.set_palm_lower_limits(new_limits)
             self.reset_button_press(4)
             self.reset_button_press(5)
             my_logger.info("Calibration - New Rest Positions F1-{} F2-{} F3-{} F4 {}".format
@@ -508,7 +509,7 @@ class joy_reflex_controller:
             raise IOError ("Unable to open calibration file")
 
         new_limits = self.palm.read_palm_servo_positions()
-        self.palm.set_palm_rest_position(new_limits)
+        self.palm.set_palm_lower_limits(new_limits)
         my_logger.info("Calibration - New Rest Positions F1-{} F2-{} F3-{} F4 {}".format
                     (new_limits[1],new_limits[2],new_limits[3],new_limits[4]))
         s = str(new_limits)
@@ -574,12 +575,12 @@ class key_reflex_controller:
             grip = -1
             self.palm.manual_move_finger(sid,grip)
             self.reset_key_press(97)
-        elif self.keys['114'] == 1: # letter s
+        elif self.keys['114'] == 1: # letter r
             sid = 4
             grip = 1
             self.palm.manual_move_finger(sid,grip)
             self.reset_key_press(114)
-        elif self.keys['102'] == 1: # letter s
+        elif self.keys['102'] == 1: # letter f
             sid = 4
             grip = -1
             self.palm.manual_move_finger(sid,grip)
@@ -592,7 +593,7 @@ class key_reflex_controller:
                 raise IOError ("Unable to open calibration file")
 
             new_limits = self.palm.read_palm_servo_positions()
-            self.palm.set_palm_rest_position(new_limits)
+            self.palm.set_palm_lower_limits(new_limits)
             my_logger.info("Calibration - New Rest Positions F1-{} F2-{} F3-{} F4 {}".format
                             (new_limits[1],new_limits[2],new_limits[3],new_limits[4]))
             s = str(new_limits)
@@ -621,7 +622,7 @@ class key_reflex_controller:
             curr_pos = self.palm.read_palm_servo_positions()
             my_logger.info("Current Positions [{}, {}, {}, {}".format
                             (curr_pos[1],curr_pos[2],curr_pos[3],curr_pos[4]))
-            rest_pos = self.palm.get_rest_position()
+            rest_pos = self.palm.get_lower_limits()
             my_logger.info("Servo Movement [{}, {}, {}, {}]".format
                             (curr_pos[1]-rest_pos[1],rest_pos[2]- curr_pos[2],curr_pos[3]-rest_pos[3],
                              rest_pos[4]-curr_pos[4]))
