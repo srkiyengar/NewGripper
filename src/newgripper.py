@@ -354,9 +354,11 @@ if __name__ == '__main__':
         textPrint.Screenprint(screen, "Pre Shape - Press 'l' to toggle NDI measurement")
         textPrint.Yspace()
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"NDI connection is {} ".format(reflex.ndi_measurement))
+        textPrint.Screenprint(screen,"NDI connection is {} (Toggle with n)".format(reflex.ndi_measurement))
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"Joystick control of gripper method is {} ".format(reflex.control_method))
+        textPrint.Screenprint(screen,"Servo data file collection {}".format(reflex.log_data_to_file))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"Joystick control of gripper method is {}".format(reflex.control_method))
         textPrint.Yspace()
         textPrint.Screenprint(screen, "Is labview program running? if NDI connection is True")
         textPrint.Yspace()
@@ -370,10 +372,12 @@ if __name__ == '__main__':
 
     # Calibration completed
 
-    ndi = reflex.ndi_measurement
+
+
 
     #setup labview connection
-    if(ndi):
+    labview_connection = False
+    if(reflex.ndi_measurement):
         my_connector = tc.command_labview('192.168.10.2', 5000)
         if my_connector.connected == 1:
             my_clock_sync = tc.sync_time(my_connector,5)
@@ -442,7 +446,7 @@ if __name__ == '__main__':
                     gp_servo = palm.read_palm_servo_positions()
                     my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
                 elif button == 1:
-                    if ndi:
+                    if reflex.ndi_measurement or reflex.log_data_to_file:
                         with my_lock:
                             # Close the previous file if it exists
                             if (record_displacement == True):   # only when button was previously pressed
@@ -474,13 +478,14 @@ if __name__ == '__main__':
                     e2.set()
                 #button 5 helps end recoding for good where as 1 get ready for next recording
                 elif button == 5:
-                    if ndi:
+                    if reflex.ndi_measurement or reflex.log_data_to_file:
                         with my_lock:
                             if (record_displacement == True):   # only when button was previously pressed
                                 if(file_ring[my_data_file.filename]== 1):
                                     my_data_file.close_file()
                                     file_ring[my_data_file.filename]=0
-                                    my_connector.stop_collecting()
+                                    if(reflex.ndi_measurement):
+                                        my_connector.stop_collecting()
                                 '''
                                 if(file_ring[my_servo_file.filename]== 1):
                                     my_servo_file.close_file()
@@ -507,7 +512,9 @@ if __name__ == '__main__':
         textPrint.Screenprint(screen,"(by Velocity if 1 or by displacement if 0) =  {}".
                               format(reflex.control_method))
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"NDI connection is {} ".format(ndi))
+        textPrint.Screenprint(screen,"NDI connection is {}".format(reflex.ndi_measurement))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"Logging servo data file (Toggle with l)---> {} ".format(reflex.log_data_to_file))
         #textPrint.indent()
         #textPrint.Yspace()
         #textPrint.Screenprint(screen, "Num Lock Key Released: {}".format(key_released))
@@ -519,5 +526,5 @@ if __name__ == '__main__':
 
         # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
         clock.tick(SCAN_RATE)
-    if(ndi):
+    if(reflex.ndi_measurement):
         my_connector.destroy()

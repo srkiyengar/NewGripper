@@ -13,6 +13,7 @@ POS_ERROR = 20
 
 
 ndi_measurement = False         # meaning we are not running polaris when False
+log_data_to_file = False        # To collect servo data without ndi measurements, this is set to True
 control_method = 1              #1 means joystick displacement moves goal position by constant*MOVE_TICKS value.
                                 #0 means joystick displacement moves goal position to a fixed value.
 
@@ -416,6 +417,81 @@ class reflex_sf():
             raise RuntimeError('servo finger joint rotation error\n')
         return F
 
+    def move_fingers_velocity_pinch_method(self,my_joy,displacement_y, displacement_x):
+        F=[]
+        # discarding deadzone
+        if displacement_y != 0.0:
+            displacement_y = my_joy.get_displacement_outside_deadzone(1,displacement_y)
+            if displacement_y != 0.0:
+                servo_angle = displacement_y*MOVE_TICKS
+                # calculation new goal position after taking the rotation direction of the servo into consideration
+                for i in range(1, 3, 1):      # only setting servo 1, 2, 3 (finger movement)
+                    value = self.finger[i]["GP"]
+                    new_value = int(value + (servo_angle*self.finger[i]["rotation"]))
+                    np = self.is_finger_within_limit(i, new_value)
+                    if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+                        my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
+                        self.finger[i]["servo"].set_goal_position(np)
+                        self.finger[i]["GP"] = np
+                        F.append(np)
+                    else:
+                        raise RuntimeError('servo finger joint rotation error\n')
+
+
+        # for servo 4 which decides the pre-shape space between Finger 1 and Finger 2
+        if displacement_x != 0.0:
+            displacement_x = my_joy.get_displacement_outside_deadzone(0,displacement_x)
+            if displacement_x != 0.0:
+                servo_angle4 = displacement_x*MOVE_TICKS_SERVO4
+                value = self.finger[4]["GP"]
+                new_value = int(value + (servo_angle4*self.finger[4]["rotation"]))
+                np = self.is_finger_within_limit(4, new_value)
+                if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+                    my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
+                    self.finger[4]["servo"].set_goal_position(np)
+                    self.finger[4]["GP"] = np
+                    F.append(np)
+                else:
+                    raise RuntimeError('servo finger joint rotation error\n')
+        return F
+
+    def move_fingers_velocity_split_finger(self,my_joy,displacement_y, displacement_x):
+        F=[]
+        # discarding deadzone
+        if displacement_y != 0.0:
+            displacement_y = my_joy.get_displacement_outside_deadzone(1,displacement_y)
+            if displacement_y != 0.0:
+                servo_angle = displacement_y*MOVE_TICKS
+                # calculation new goal position after taking the rotation direction of the servo into consideration
+                for i in range(1, 3, 1):      # only setting servo 1, 2, 3 (finger movement)
+                    value = self.finger[i]["GP"]
+                    new_value = int(value + (servo_angle*self.finger[i]["rotation"]))
+                    np = self.is_finger_within_limit(i, new_value)
+                    if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+                        my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
+                        self.finger[i]["servo"].set_goal_position(np)
+                        self.finger[i]["GP"] = np
+                        F.append(np)
+                    else:
+                        raise RuntimeError('servo finger joint rotation error\n')
+
+
+        # for servo 4 moves finger 3
+        if displacement_x != 0.0:
+            displacement_x = my_joy.get_displacement_outside_deadzone(0,displacement_x)
+            if displacement_x != 0.0:
+                servo_angle3 = displacement_x*MOVE_TICKS
+                value = self.finger[3]["GP"]
+                new_value = int(value + (servo_angle3*self.finger[3]["rotation"]))
+                np = self.is_finger_within_limit(3, new_value)
+                if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+                    my_logger.info("Moving Servo: {} to Goal position: {}".format(3, np))
+                    self.finger[3]["servo"].set_goal_position(np)
+                    self.finger[3]["GP"] = np
+                    F.append(np)
+                else:
+                    raise RuntimeError('servo finger joint rotation error\n')
+        return F
 
     def move_fingers(self,my_joy,y_disp,x_disp):
 
@@ -423,6 +499,9 @@ class reflex_sf():
             self.move_fingers_velocity_method(my_joy,y_disp,x_disp)
         elif control_method == 0:
             self.move_fingers_displacement_method(y_disp,x_disp)
+        elif control_method == 2:
+            self.move_fingers_velocity_split_finger(my_joy, y_disp,x_disp)
+            #self.move_fingers_velocity_pinch_method(my_joy,y_disp,x_disp)
 
 
 class joy_reflex_controller:
@@ -534,8 +613,9 @@ class key_reflex_controller:
 
     def __init__(self, grabber):
         self.palm = grabber
-        self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0,'122':0,'108':0,'109':0}
-        # Letter-Integer q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102,c-99
+        self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0,'122':0,'108':0,'109':0,
+                     '110':0}
+        # Letter-Integers q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102,122-z, c-99 108-l, 109-m, 110-n
         # 108 - l for wanting Ndi labview measurements
         # 109 for choosing velocity method for gripper position with default or toggle to fixed displacement
         # When key value is captured it can be turned into string for the dict.
@@ -552,7 +632,7 @@ class key_reflex_controller:
         self.keys[str(key)] = 0
 
     def process_key_actions(self):  # Act based on Buttons
-        global ndi_measurement, control_method
+        global ndi_measurement, control_method, log_data_to_file
         k = 0       # return 1 when processing letter c
         if self.keys['101'] == 1:   # letter e
             sid = 3
@@ -613,20 +693,32 @@ class key_reflex_controller:
             self.reset_key_press(99)
             k = 1
         elif self.keys['108'] == 1: # letter l
+            if log_data_to_file:
+                my_logger.info("We are going run Gripper without creating servo position file")
+                log_data_to_file = False
+            else:
+                my_logger.info("We are going run Gripper creating servo position file")
+                log_data_to_file = True
+            self.reset_key_press(108)
+        elif self.keys['109'] == 1: # letter m
+            if control_method==0:
+                my_logger.info("Joystick servo control method = 1 - Joy displacement creates velocity")
+                control_method = 1
+            elif control_method==1:
+                my_logger.info("Joystick servo control method = 2 - Jsplit finger with velocity")
+                control_method = 2
+            elif control_method ==2:
+                my_logger.info("Joystick servo control method = 0 - Joy displacement = fixed location")
+                control_method = 0
+            self.reset_key_press(109)
+        elif self.keys['110'] == 1: # letter n
             if (ndi_measurement):
                 my_logger.info("We are going run Gripper without NDI polaris")
                 ndi_measurement = False
             else:
                 my_logger.info("We are going run Gripper with NDI polaris")
                 ndi_measurement = True
-        elif self.keys['109'] == 1: # letter m
-            if control_method==1:
-                my_logger.info("Joystick servo control method = 0 - Joy displacement = Fixed servo position")
-                control_method = 0
-            else:
-                my_logger.info("Joystick servo control method = 1 - Joy displacement creates velocity")
-                control_method = 1
-
+            self.reset_key_press(110)
         elif self.keys['122'] == 1:  # letter z
             curr_pos = self.palm.read_palm_servo_positions()
             my_logger.info("Current Positions [{}, {}, {}, {}".format
