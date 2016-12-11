@@ -140,8 +140,11 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
 
         if (delta_t < reflex_loop_rate):
             delay = reflex_loop_rate - delta_t
-            delay = delay/1000000.0
-            time.sleep(delay)
+            delay_in_seconds = delay/1000000.0
+            time.sleep(delay_in_seconds)
+            #what_time = datetime.now()
+            #delta_t =   what_time - last_reflex_time
+            #delta_t = delta_t.seconds*1000000 + delta_t.microseconds
 
         with my_lock:
             y_displacement = joy_y_position
@@ -161,14 +164,14 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
                 servo_gp = palm.move_fingers(my_joy,y_displacement,x_displacement)
                 if collect_data:
                     v = palm.servo_current_position_if_not_moving(1)
+                    '''
                     c_diff = command_time - previous_command_time
                     c_diff_micro= c_diff.seconds*1000000+c_diff.microseconds
-                    '''
-                    my_data_file.write_data(str(command_time)+","+str(previous_command_time)+","+
+                    my_data_file.write_data(str(counter)+"->"+str(delta_t)+'--#,'+str(command_time)+","+str(previous_command_time)+","+
                                             str(c_diff.seconds)+","+str(c_diff.microseconds)+'\n')
                     '''
                     my_data_file.write_data(str(joy_ts)+","+str(y_displacement)+","+
-                                                    str(x_displacement)+","+str(command_time)+","+str(c_diff_micro)+","+
+                                                    str(x_displacement)+","+str(command_time)+","+
                                                     str(servo_gp).strip("[]")+"," + str(v)+'\n')
                 joy_moved = False
                 my_logger.info('Thread Reflex - Resetting Joy Displacement Flag to {}'.format(joy_moved))
@@ -446,6 +449,7 @@ if __name__ == '__main__':
                     gp_servo = palm.read_palm_servo_positions()
                     my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
                 elif button == 1:
+                    task_start_time = datetime.now()
                     if reflex.ndi_measurement or reflex.log_data_to_file:
                         with my_lock:
                             # Close the previous file if it exists
@@ -478,10 +482,17 @@ if __name__ == '__main__':
                     e2.set()
                 #button 5 helps end recoding for good where as 1 get ready for next recording
                 elif button == 5:
+                    task_end_time = datetime.now()
                     if reflex.ndi_measurement or reflex.log_data_to_file:
                         with my_lock:
                             if (record_displacement == True):   # only when button was previously pressed
                                 if(file_ring[my_data_file.filename]== 1):
+                                    total_task_time = task_end_time - task_start_time
+                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
+                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
+                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
+                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
+                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
                                     my_data_file.close_file()
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):
@@ -509,7 +520,7 @@ if __name__ == '__main__':
         textPrint.Yspace()
         textPrint.Screenprint(screen," Method of Joy displacement control Of Gripper")
         textPrint.Yspace()
-        textPrint.Screenprint(screen,"(by Velocity if 1 or by displacement if 0) =  {}".
+        textPrint.Screenprint(screen,"(by Velocity if 1 or by displacement if 2) =  {}".
                               format(reflex.control_method))
         textPrint.Yspace()
         textPrint.Screenprint(screen,"NDI connection is {}".format(reflex.ndi_measurement))

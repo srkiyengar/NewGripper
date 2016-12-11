@@ -15,14 +15,14 @@ POS_ERROR = 20
 ndi_measurement = False         # meaning we are not running polaris when False
 log_data_to_file = False        # To collect servo data without ndi measurements, this is set to True
 control_method = 1              #1 means joystick displacement moves goal position by constant*MOVE_TICKS value.
-                                #0 means joystick displacement moves goal position to a fixed value.
+                                #2 means joystick displacement moves goal position to a fixed value.
 
 CALIBRATION_TICKS = 50
 
 
 # With lower limit set by eye during cabliration, upper limit is set by the two MAX values
 MAX_FINGER_MOVEMENT = 2100      # Fingers  1,2,3 upper limit offset from lower limit (+ or - depends on rotation).
-MAX_PRESHAPE_MOVEMENT = 1200    # space between 1 and 2
+MAX_PRESHAPE_MOVEMENT = 800    # space between 1 and 2
 
 MAX_SPEED = 600 # A max speed of 1023 is allowed
 
@@ -366,7 +366,6 @@ class reflex_sf():
                     else:
                         raise RuntimeError('servo finger joint rotation error\n')
 
-
         # for servo 4 which decides the pre-shape space between Finger 1 and Finger 2
         if displacement_x != 0.0:
             displacement_x = my_joy.get_displacement_outside_deadzone(0,displacement_x)
@@ -496,13 +495,19 @@ class reflex_sf():
     def move_fingers(self,my_joy,y_disp,x_disp):
 
         if control_method == 1:
-            self.move_fingers_velocity_method(my_joy,y_disp,x_disp)
-        elif control_method == 0:
-            self.move_fingers_displacement_method(y_disp,x_disp)
+            G = self.move_fingers_velocity_method(my_joy,y_disp,x_disp)
         elif control_method == 2:
-            self.move_fingers_velocity_split_finger(my_joy, y_disp,x_disp)
+            G = self.move_fingers_displacement_method(y_disp,x_disp)
+        #elif control_method == 3:
+            #G = self.move_fingers_velocity_split_finger(my_joy, y_disp,x_disp)
             #self.move_fingers_velocity_pinch_method(my_joy,y_disp,x_disp)
+        return G
 
+    def get_move_finger_control_method(self):
+        if control_method == 1:
+            return "Joystick velocity drives Gripper Goal position"
+        elif control_method == 2:
+            return "Joystick Displacement mapped to fixed finger positions in gripper"
 
 class joy_reflex_controller:
     def __init__(self, my_joy,grabber):
@@ -701,15 +706,12 @@ class key_reflex_controller:
                 log_data_to_file = True
             self.reset_key_press(108)
         elif self.keys['109'] == 1: # letter m
-            if control_method==0:
-                my_logger.info("Joystick servo control method = 1 - Joy displacement creates velocity")
-                control_method = 1
-            elif control_method==1:
-                my_logger.info("Joystick servo control method = 2 - Jsplit finger with velocity")
+            if control_method==1:
+                my_logger.info("Joystick servo control method set to 2 - Joy displacement = fixed location")
                 control_method = 2
-            elif control_method ==2:
-                my_logger.info("Joystick servo control method = 0 - Joy displacement = fixed location")
-                control_method = 0
+            elif control_method==2:
+                my_logger.info("Joystick servo control method set to 1 - Joy displacement creates velocity")
+                control_method = 1
             self.reset_key_press(109)
         elif self.keys['110'] == 1: # letter n
             if (ndi_measurement):
