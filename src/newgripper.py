@@ -537,5 +537,6 @@ if __name__ == '__main__':
 
         # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
         clock.tick(SCAN_RATE)
+
     if(reflex.ndi_measurement):
         my_connector.destroy()
