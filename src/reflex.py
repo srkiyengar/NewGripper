@@ -619,10 +619,19 @@ class key_reflex_controller:
     def __init__(self, grabber):
         self.palm = grabber
         self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0,'122':0,'108':0,'109':0,
-                     '110':0}
-        # Letter-Integers q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102,122-z, c-99 108-l, 109-m, 110-n
-        # 108 - l for wanting Ndi labview measurements
-        # 109 for choosing velocity method for gripper position with default or toggle to fixed displacement
+                     '110':0, '112':0}
+        # Letter-Integers q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102, c-99, z-122, l-108, m-109, n-110, p-112
+        # q(113), a(97) - up or down servo 1 which is finger 1
+        # w(119), s(115) - up or down servo 2 which is finger 2
+        # e(101), d(100) - up or down servo 3 which is finger 3
+        # r(114), f(102) - away or closer between fingers 1 and 2
+        # c(99) - Calibration complete. The current positions of the servo will be the new lowest position
+        # z(122) - To measure drift from lowest position- Take the fingers to lowest and then use the command
+        # l(108) - To Toggle Gripper with or without creating servo position file - Default - without
+        # n(110) To Toggle Ndi labview measurements - Default - No NDI measurement
+        # m(109) for toggling velocity method to drive gripper position to fixed displacement gripper position
+        # p(112) for sending fingers to rest position
+
         # When key value is captured it can be turned into string for the dict.
         # All keys are set to 0 and become 1 if key is pressed and go to 0 when released.
 
@@ -638,7 +647,7 @@ class key_reflex_controller:
 
     def process_key_actions(self):  # Act based on Buttons
         global ndi_measurement, control_method, log_data_to_file
-        k = 0       # return 1 when processing letter c
+        k = 0       # returns 1 when processing letter c otherwise k is unchanged.
         if self.keys['101'] == 1:   # letter e
             sid = 3
             grip = 1
@@ -730,6 +739,10 @@ class key_reflex_controller:
                             (curr_pos[1]-rest_pos[1],rest_pos[2]- curr_pos[2],curr_pos[3]-rest_pos[3],
                              rest_pos[4]-curr_pos[4]))
             self.reset_key_press(122)
+        elif self.keys['112'] == 1: #letter p
+            self.palm.move_to_lower_limits()
+            new_servo_position = self.palm.read_palm_servo_positions()
+            my_logger.info("Finger Lower Limit Positions {}".format(new_servo_position[1:]))
         return k
 
 

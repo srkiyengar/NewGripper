@@ -145,7 +145,7 @@ class Thumbstick():
 
             value = int("".join(response))
             # The thumb stick 0-1023 in X and Y axis
-            # The rest position is 515, 510
+            # The rest position is 515, 501 (500 or 501, this keeps flipping)
             if cmd == 0:
                 if value >= 0:
                     return value/508.0
@@ -155,12 +155,14 @@ class Thumbstick():
                 if value >=0:
                     return value/522.0
                 else:
+                    if value == -1:         # this is a hack as value moves back and forth between 500 and 501
+                        value = 0           # We don't this to considered as joystick movement.
                     return value/501.0
             elif cmd == 255:
                 return value
 
     def get_displacement(self,k):
-        self.get_response(k)
+        return self.get_response(k)
         
     def get_displacement_outside_deadzone(self,k,displacement):
         """

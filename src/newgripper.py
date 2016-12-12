@@ -294,7 +294,19 @@ if __name__ == '__main__':
     textPrint = sp.TextPrint()
 
     # Joystick Values
-    my_joy = js.ExtremeProJoystick()
+
+    try:
+        joy_logitech = js.ExtremeProJoystick()
+    except:
+        try:
+            joy_thumstick = js.Thumbstick()
+        except:
+            raise RuntimeError('Joystick not found\n')
+        else:
+            my_joy = joy_thumstick
+    else:
+        my_joy = joy_logitech
+
     my_controller = reflex.joy_reflex_controller(my_joy,palm)
     my_key_controller = reflex.key_reflex_controller(palm)
 
