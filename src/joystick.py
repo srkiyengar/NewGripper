@@ -147,10 +147,10 @@ class Thumbstick():
             # The thumb stick 0-1023 in X and Y axis
             # The rest position is 515, 501 (500 or 501, this keeps flipping)
             if cmd == 0:
-                if value >= 0:
-                    return value/508.0
-                else:
-                    return value/515.0
+                if value >= 0: # X-Axis value will be flipped to match with logitech
+                    return -(value/508.0)
+                else:           # # X-Axis value will be flipped to match with logitech
+                    return -(value/515.0)
             elif cmd == 1:
                 if value >=0:
                     return value/522.0
