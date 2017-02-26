@@ -17,6 +17,7 @@ log_data_to_file = False        # To collect servo data without ndi measurements
 control_method = 1              #1 means joystick displacement moves goal position by constant*MOVE_TICKS value.
                                 #2 means joystick displacement moves goal position to a fixed value.
 
+
 CALIBRATION_TICKS = 50
 
 
@@ -157,7 +158,14 @@ class reflex_sf():
         p = self.finger[id]["servo"].read_current_position()
         return p
 
-
+    def servo_current_position_if_not_moving_all(self):
+        G = []
+        for i in range(1,5,1):
+            if (self.finger[i]["servo"].is_moving()):
+                G.append(0)
+            else:
+                G.append(self.finger[i]["servo"].read_current_position())
+        return G
     # New goal position is checked to see if it is within limits. Otherwise limits become the new position
     def is_finger_within_limit(self, id, new_position):
         '''
@@ -393,7 +401,7 @@ class reflex_sf():
             servo_angle = int(MAX_FINGER_MOVEMENT*y_position*self.finger[i]["rotation"])
             new_value = self.finger[i]["lower_limit"] + servo_angle
             np = self.is_finger_within_limit(i, new_value)
-            if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+            if np > 0:      # np > 1 is the valid gp. when outside limit, np will be set to limit value of the servo
                 my_logger.info("Moving Servo: {} to Goal position: {}".format(i, np))
                 self.finger[i]["servo"].set_goal_position(np)
                 self.finger[i]["GP"] = np
@@ -407,7 +415,7 @@ class reflex_sf():
         servo_angle4 = int(MAX_PRESHAPE_MOVEMENT*x_position*self.finger[4]["rotation"])
         new_value = self.finger[4]["lower_limit"] + servo_angle4
         np = self.is_finger_within_limit(4, new_value)
-        if np > 0:      # np > 1 is the valid gp when outside limit, np will be set to limit value of the servo
+        if np > 0:      # np > 1 is the valid gp. when outside limit, np will be set to limit value of the servo
             my_logger.info("Moving Servo: {} to Goal position: {}".format(4, np))
             self.finger[4]["servo"].set_goal_position(np)
             self.finger[4]["GP"] = np

@@ -61,7 +61,7 @@ class ExtremeProJoystick():
 
 
 
-    def get_button_pressed(self, my_event):
+    def get_button_pressed(self,my_event):
         button_number = my_event.dict['button']    # from pygame.event
         return button_number
 

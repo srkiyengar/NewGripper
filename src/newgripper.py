@@ -101,6 +101,7 @@ def update_joy_displacement(my_joy, e2):
         axis_x = my_joy.get_displacement(0)  # Axis 0 - preshape displacement
         axis_y = my_joy.get_displacement(1)   # Axis 1 - Aperture displacement
 
+        #if ("go in"):
         if axis_x != 0 or axis_y != 0:
             my_logger.info('Joystick Thread Counter: {} Time: {} Aperture Disp. {} Preshape Disp. {}'.
                             format(counter, str(measurement_time)[17:],axis_y,axis_x))
@@ -163,7 +164,7 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
 
                 servo_gp = palm.move_fingers(my_joy,y_displacement,x_displacement)
                 if collect_data:
-                    v = palm.servo_current_position_if_not_moving(1)
+                    v = palm.servo_current_position_if_not_moving_all()
                     '''
                     c_diff = command_time - previous_command_time
                     c_diff_micro= c_diff.seconds*1000000+c_diff.microseconds
@@ -172,9 +173,9 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
                     '''
                     my_data_file.write_data(str(joy_ts)+","+str(y_displacement)+","+
                                                     str(x_displacement)+","+str(command_time)+","+
-                                                    str(servo_gp).strip("[]")+"," + str(v)+'\n')
+                                                    str(servo_gp).strip("[]")+",**" + str(v).strip("[]")+'\n')
                 joy_moved = False
-                my_logger.info('Thread Reflex - Resetting Joy Displacement Flag to {}'.format(joy_moved))
+                my_logger.info('Reflex Thread - Resetting Joy Displacement Flag to {}'.format(joy_moved))
 
         counter += 1
         previous_command_time = command_time
@@ -366,7 +367,7 @@ if __name__ == '__main__':
         textPrint.Yspace()
         textPrint.Screenprint(screen, "Pre Shape - Press 'f' to move away")
         textPrint.Yspace()
-        textPrint.Screenprint(screen, "Pre Shape - Press 'l' to toggle NDI measurement")
+        textPrint.Screenprint(screen, "Press 'l' to toggle NDI measurement")
         textPrint.Yspace()
         textPrint.Yspace()
         textPrint.Screenprint(screen,"NDI connection is {} (Toggle with n)".format(reflex.ndi_measurement))
@@ -475,6 +476,7 @@ if __name__ == '__main__':
                                 record_displacement = True
                             my_data_file = dc.displacement_file(my_rand)
                             file_ring[my_data_file.filename]=1
+                            my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
                             my_rand += 1
                         if labview_connection:
                             my_connector.start_collecting(my_data_file.id)
