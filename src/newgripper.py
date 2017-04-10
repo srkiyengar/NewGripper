@@ -60,6 +60,8 @@ all_loop = True                 # loop control for threads
 joy_measurement_ts = 0.0        # joystick displacement measurement timestamp
 joy_moved = False               # This is to restrict logging to logger only when there is a change in displacement
 
+
+
 record_displacement = False     # When to record finger position with time for gripping
 
 
@@ -156,7 +158,7 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
 
         command_time = datetime.now()
 
-        if move_servo:
+        if move_servo and reflex.servo_move_with_joy:
             my_logger.info('Thread Reflex Counter: {} - Time: {} Aperture (Y) disp {} Pre-shape (X) disp'.
                            format(counter, command_time, y_displacement,x_displacement))
             # Sending the displacement to move_fingers in reflex.py to process
@@ -367,7 +369,7 @@ if __name__ == '__main__':
         textPrint.Yspace()
         textPrint.Screenprint(screen, "Pre Shape - Press 'f' to move away")
         textPrint.Yspace()
-        textPrint.Screenprint(screen, "Press 'l' to toggle NDI measurement")
+        textPrint.Screenprint(screen, "Pressing 'l (L)' toggles servo data file capture when No NDI measurement")
         textPrint.Yspace()
         textPrint.Yspace()
         textPrint.Screenprint(screen,"NDI connection is {} (Toggle with n)".format(reflex.ndi_measurement))
@@ -396,7 +398,7 @@ if __name__ == '__main__':
     if(reflex.ndi_measurement):
         my_connector = tc.command_labview('192.168.10.2', 5000)
         if my_connector.connected == 1:
-            my_clock_sync = tc.sync_time(my_connector,5)
+            my_clock_sync = tc.sync_time(my_connector,10)
             my_clock_sync.get_time_diff()
             transit_time = my_clock_sync.transit_time
             #my_dataset.set_transit_time(transit_time)
@@ -474,10 +476,13 @@ if __name__ == '__main__':
                                         my_connector.stop_collecting()
                             else:
                                 record_displacement = True
-                            my_data_file = dc.displacement_file(my_rand)
-                            file_ring[my_data_file.filename]=1
-                            my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
-                            my_rand += 1
+                        my_data_file = dc.displacement_file(my_rand)
+                        file_ring[my_data_file.filename]=1
+                        my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
+                        # Time difference between Labview PC and the Laptop running Gripper
+                        my_data_file.write_data("Time Difference between Labview PC and the Laptop running Gripper"
+                                            "(+ive means Desktop is ahead): "+str(my_clock_sync.clock_difference)+'\n')
+                        my_rand += 1
                         if labview_connection:
                             my_connector.start_collecting(my_data_file.id)
                     '''
@@ -540,6 +545,9 @@ if __name__ == '__main__':
         textPrint.Screenprint(screen,"NDI connection is {}".format(reflex.ndi_measurement))
         textPrint.Yspace()
         textPrint.Screenprint(screen,"Logging servo data file (Toggle with l)---> {} ".format(reflex.log_data_to_file))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen,"Joystick drives Gripper (Toggle with x) ----> {}".format(reflex.servo_move_with_joy))
+
         #textPrint.indent()
         #textPrint.Yspace()
         #textPrint.Screenprint(screen, "Num Lock Key Released: {}".format(key_released))
@@ -554,3 +562,5 @@ if __name__ == '__main__':
 
     if(reflex.ndi_measurement):
         my_connector.destroy()
+
+
