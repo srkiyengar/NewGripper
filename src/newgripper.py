@@ -163,7 +163,7 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
                            format(counter, command_time, y_displacement,x_displacement))
             # Sending the displacement to move_fingers in reflex.py to process
             with my_lock:
-
+                #servo_gp will be 4 numbers in a list corresponding to servo 1,2,3,4
                 servo_gp = palm.move_fingers(my_joy,y_displacement,x_displacement)
                 if collect_data:
                     v = palm.servo_current_position_if_not_moving_all()
@@ -480,10 +480,11 @@ if __name__ == '__main__':
                         file_ring[my_data_file.filename]=1
                         my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
                         # Time difference between Labview PC and the Laptop running Gripper
-                        my_data_file.write_data("Time Difference between Labview PC and the Laptop running Gripper"
-                                            "(+ive means Desktop is ahead): "+str(my_clock_sync.clock_difference)+'\n')
+
                         my_rand += 1
                         if labview_connection:
+                            my_data_file.write_data("Time Difference between Labview PC and the Laptop running Gripper"
+                                            "(+ive means Desktop is ahead): "+str(my_clock_sync.clock_difference)+'\n')
                             my_connector.start_collecting(my_data_file.id)
                     '''
                         my_servo_file = dc.servo_position_file(my_rand,my_data_file.get_file_prefix())

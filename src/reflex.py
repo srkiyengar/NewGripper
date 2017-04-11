@@ -168,6 +168,23 @@ class reflex_sf():
             else:
                 G.append(self.finger[i]["servo"].read_current_position())
         return G
+
+    def substitute_current_servo_position(self,SP):
+        # SP is any servo position list of 4 numbers. CP is current servo position
+        # If any SP value is 0 we will set it to current servo position
+        NP = [0,0,0,0]
+        CP = self.read_palm_servo_positions()   #5 numbers in a list of which first one is not used
+        del CP[0]
+        my_logger.debug('Servo positions are {}\n Current positions are {}'.format(CP,SP))
+        for i in range(0,4,1):
+            if SP[i] == 0:
+                NP[i] = CP[i]
+            else:
+                NP[i] = SP[i]
+        my_logger.debug('Servo positions changed to {}\n'.format(NP))
+        return NP
+
+
     # New goal position is checked to see if it is within limits. Otherwise limits become the new position
     def is_finger_within_limit(self, id, new_position):
         '''
@@ -348,7 +365,7 @@ class reflex_sf():
         return F
 
     def move_to_goal_position(self,gp):
-        for i in range(1,5,1):
+        for i in range(1,5,1):      # the gp is a list of 5 numbers where the first one is unused
             my_logger.info("Moving Servo: {} to Goal position: {}".format(i, gp[i]))
             # check if it is within limit
             self.is_finger_within_limit(i,gp[i])
@@ -394,7 +411,7 @@ class reflex_sf():
         return F
 
     def move_fingers_displacement_method(self,y_position,x_position):
-        F=[0,0,0,0]
+        F=[0,0,0,0] # It is a list corresponding to 4 servos.
         # calculating new goal positions
         y_position = (y_position+1)/2      #shifting -1 to +1 to 0 to 1
         x_position = (x_position+1)/2
@@ -629,9 +646,9 @@ class key_reflex_controller:
     def __init__(self, grabber):
         self.palm = grabber
         self.keys = {'113':0,'97':0,'119':0,'115':0,'101':0,'100':0,'114':0,'102':0,'99':0,'122':0,'108':0,'109':0,
-                     '110':0, '112':0, '120':0}
+                     '110':0, '112':0, '120':0, '111':0}
         # Letter-Integers q-113,a-97,w-119,s-115,e-101,d-100,r-114,f-102, c-99, z-122, l-108, m-109, n-110, p-112
-        # x-120
+        # x-120, o(111)
         # q(113), a(97) - up or down servo 1 which is finger 1
         # w(119), s(115) - up or down servo 2 which is finger 2
         # e(101), d(100) - up or down servo 3 which is finger 3
@@ -643,9 +660,10 @@ class key_reflex_controller:
         # m(109) for toggling velocity method to drive gripper position to fixed displacement gripper position
         # p(112) for sending fingers to rest position
         # x(120) will toggle if joystick will drive the servo or not
+        # o(111) will read a file and move to the location
 
         # When key value is captured it can be turned into string for the dict.
-        # All keys are set to 0 and become 1 if key is pressed and go to 0 when released.
+        # Keys are set to 0 and become 1 if key is pressed and back go to 0 when released
 
     def set_key_press(self, key):
         self.keys[str(key)] = 1
@@ -755,6 +773,7 @@ class key_reflex_controller:
             self.palm.move_to_lower_limits()
             new_servo_position = self.palm.read_palm_servo_positions()
             my_logger.info("Finger Lower Limit Positions {}".format(new_servo_position[1:]))
+            self.reset_key_press(112)
         elif self.keys['120'] == 1: #letter x
             if servo_move_with_joy:
                 my_logger.info("Joystick will not drive the gripper")
@@ -762,6 +781,27 @@ class key_reflex_controller:
             else:
                 my_logger.info("Joystick will drive the gripper")
                 servo_move_with_joy = True
+            self.reset_key_press(120)
+        elif self.keys['111'] == 1: #letter o
+            my_logger.info("Read from a file and Move Gripper")
+            try:
+                my_file = "gripper-position"
+                fp = open(my_file,"r")
+                position_str = fp.readline()
+                fp.close()
+            except IOError:
+                raise IOError ("Unable to open file {}".format(my_file))
+
+            nv =[0,0,0,0]
+            j = 0
+            for i in position_str.split(','):
+                nv[j] = int(i)
+                j += 1
+
+            np = self.palm.substitute_current_servo_position(nv)
+            np.insert(0,0)
+            self.palm.move_to_goal_position(np)
+            self.reset_key_press(111)
         return k
 
 
