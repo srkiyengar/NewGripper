@@ -2,6 +2,7 @@ __author__ = 'srkiyengar'
 
 import dynamixel
 import logging
+import time
 from datetime import datetime
 
 
@@ -784,23 +785,24 @@ class key_reflex_controller:
             self.reset_key_press(120)
         elif self.keys['111'] == 1: #letter o
             my_logger.info("Read from a file and Move Gripper")
+            my_file = "gripper-position"
             try:
-                my_file = "gripper-position"
                 fp = open(my_file,"r")
-                position_str = fp.readline()
-                fp.close()
             except IOError:
                 raise IOError ("Unable to open file {}".format(my_file))
 
-            nv =[0,0,0,0]
-            j = 0
-            for i in position_str.split(','):
-                nv[j] = int(i)
-                j += 1
+            for my_line in fp:
+                nv = my_line.rstrip('\n').split(',')
+                if len(nv) != 4:
+                    my_logger.info("skipping line: {} while - Move Gripper".format(my_line))
+                else:
+                    nv = [int(i) for i in nv]
+                    np = self.palm.substitute_current_servo_position(nv)
+                    np.insert(0,0)
+                    self.palm.move_to_goal_position(np)
+                    time.sleep(1)
+            fp.close()
 
-            np = self.palm.substitute_current_servo_position(nv)
-            np.insert(0,0)
-            self.palm.move_to_goal_position(np)
             self.reset_key_press(111)
         return k
 
