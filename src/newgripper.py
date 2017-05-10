@@ -166,7 +166,11 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
                 #servo_gp will be 4 numbers in a list corresponding to servo 1,2,3,4
                 servo_gp = palm.move_fingers(my_joy,y_displacement,x_displacement)
                 if collect_data:
+                    time_before_position_command = datetime.now()
                     v = palm.servo_current_position_if_not_moving_all()
+                    time_after_position_command = datetime.now()
+                    time_elapsed = time_after_position_command-time_before_position_command
+                    time_elapsed = time_elapsed.seconds*1000000+time_elapsed.microseconds
                     '''
                     c_diff = command_time - previous_command_time
                     c_diff_micro= c_diff.seconds*1000000+c_diff.microseconds
@@ -175,7 +179,9 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
                     '''
                     my_data_file.write_data(str(joy_ts)+","+str(y_displacement)+","+
                                                     str(x_displacement)+","+str(command_time)+","+
-                                                    str(servo_gp).strip("[]")+",**" + str(v).strip("[]")+'\n')
+                                                    str(servo_gp).strip("[]")+",**" +
+                                                    str(time_before_position_command) + ","+str(time_elapsed)+
+                                                    "," + str(v).strip("[]")+'\n')
                 joy_moved = False
                 my_logger.info('Reflex Thread - Resetting Joy Displacement Flag to {}'.format(joy_moved))
 
