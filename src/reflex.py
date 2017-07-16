@@ -16,7 +16,7 @@ POS_ERROR = 20
 
 ndi_measurement = False         # meaning we are not running polaris when False
 log_data_to_file = False        # To collect servo data without ndi measurements, this is set to True
-control_method = 1              #1 means joystick displacement moves goal position by constant*MOVE_TICKS value.
+control_method = 2              #1 means joystick displacement moves goal position by constant*MOVE_TICKS value.
                                 #2 means joystick displacement moves goal position to a fixed value.
 
 servo_move_with_joy = True      # means joystick or thumstick will move servo
