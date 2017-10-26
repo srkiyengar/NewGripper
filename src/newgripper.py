@@ -14,8 +14,8 @@ import random
 import tcp_client as tc
 
 
-SOME_MIN_RANDOM_NUMBER = 1000
-SOME_MAX_RANDOM_NUMBER = 1999
+SOME_MIN_RANDOM_NUMBER = 100001
+SOME_MAX_RANDOM_NUMBER = 990000
 
 '''
 The default model for Joystick displacement for moving servo is 1. Here a non-zero joystick displacement will
@@ -176,16 +176,19 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
                     c_diff_micro= c_diff.seconds*1000000+c_diff.microseconds
                     my_data_file.write_data(str(counter)+"->"+str(delta_t)+'--#,'+str(command_time)+","+str(previous_command_time)+","+
                                             str(c_diff.seconds)+","+str(c_diff.microseconds)+'\n')
-                    '''
+
                     my_data_file.write_data(str(joy_ts)+","+str(y_displacement)+","+
                                                     str(x_displacement)+","+str(command_time)+","+
                                                     str(servo_gp).strip("[]")+",**" +
                                                     str(time_before_position_command) + ","+str(time_elapsed)+
                                                     "," + str(v).strip("[]")+'\n')
+                    '''
+                    my_data_file.write_data(str(time_after_position_command) + ","+ str(v).strip("[]")+'\n')
+
                 joy_moved = False
                 my_logger.info('Reflex Thread - Resetting Joy Displacement Flag to {}'.format(joy_moved))
 
-        counter += 1
+            counter += 1
         previous_command_time = command_time
         last_reflex_time = present_time
     my_logger.info('Exit Reflex thread')
@@ -424,16 +427,20 @@ if __name__ == '__main__':
 
 
     # preparing the two threads that will run
-    get_goal_position_thread = threading.Thread(target = update_joy_displacement,args=(my_joy,e2))
-    set_goal_position_thread = threading.Thread(target = move_reflex_to_goal_positions, args=(my_joy,palm,e2))
+    get_goal_position_thread = threading.Thread(target = update_joy_displacement,name="read_joystick",args=(my_joy,e2))
+    set_goal_position_thread = threading.Thread(target = move_reflex_to_goal_positions,name="move_gripper", args=(my_joy,palm,e2))
     #get_servo_position_thread = threading.Thread(target = record_servo_position, args=(palm,e2))
+
+    my_threads = []
 
     # Two threads started
     get_goal_position_thread.start()
     set_goal_position_thread.start()
     #get_servo_position_thread.start()
 
-
+    my_threads.append(get_goal_position_thread.name)
+    my_threads.append(set_goal_position_thread.name)
+    my_logger.info("Joy thread {} Gripper thread {}".format(my_threads[0],my_threads[1]))
 
     # The main loop that examines for other UI actions including Joy button/HatLoop until the user clicks the close button.
     done = False
@@ -469,7 +476,7 @@ if __name__ == '__main__':
                 if button == 0:
                     gp_servo = palm.read_palm_servo_positions()
                     my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
-                elif button == 1:
+                elif button == 6:
                     task_start_time = datetime.now()
                     if reflex.ndi_measurement or reflex.log_data_to_file:
                         with my_lock:
@@ -506,8 +513,8 @@ if __name__ == '__main__':
                     time.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
-                #button 5 helps end recoding for good where as 1 get ready for next recording
-                elif button == 5:
+                #button 1 ends recoding for good but does not start the next recording
+                elif button == 1:
                     task_end_time = datetime.now()
                     if reflex.ndi_measurement or reflex.log_data_to_file:
                         with my_lock:
@@ -519,6 +526,30 @@ if __name__ == '__main__':
                                     my_data_file.write_data("End time: "+str(task_end_time)+'\n')
                                     my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
                                     my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
+                                    my_data_file.close_file()
+                                    file_ring[my_data_file.filename]=0
+                                    if(reflex.ndi_measurement):
+                                        my_connector.stop_collecting()
+                                '''
+                                if(file_ring[my_servo_file.filename]== 1):
+                                    my_servo_file.close_file()
+                                    file_ring[my_servo_file.filename]=0
+                                '''
+                                record_displacement = False
+                #button 2 end recoding for good does not start the next recording and stamps the grip as failure.
+                elif button == 2:
+                    task_end_time = datetime.now()
+                    if reflex.ndi_measurement or reflex.log_data_to_file:
+                        with my_lock:
+                            if (record_displacement == True):   # only when button was previously pressed
+                                if(file_ring[my_data_file.filename]== 1):
+                                    total_task_time = task_end_time - task_start_time
+                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
+                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
+                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
+                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
+                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
+                                    my_data_file.write_data("Grip Failure")
                                     my_data_file.close_file()
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):

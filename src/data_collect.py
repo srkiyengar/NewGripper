@@ -14,7 +14,10 @@ class displacement_file():
     def __init__(self, rand):
         file_prefix = str(datetime.now())[:16]
         self.prefix = file_prefix
-        self.filename = "Servo-displacement-"+file_prefix+"-"+str(rand)
+        #self.filename = "Servo-displacement-"+file_prefix+"-"+str(rand)
+        file_prefix = file_prefix.replace(" ","-")
+        file_prefix = file_prefix.replace(":","-")
+        self.filename = str(rand)+"-"+file_prefix+"-"+"Servo-displacement"
         self.id = str(rand)
         try:
             self.fp = open(self.filename,"w")
@@ -37,6 +40,7 @@ class displacement_file():
 class servo_position_file():
     def __init__(self,the_rand, the_prefix):
         self.filename = "Servo-position-"+the_prefix+"-"+str(the_rand)
+        #self.filename = str(the_rand)+"-"+the_prefix+"-"+"Servo-position"
         try:
             self.fp1 = open(self.filename,"w")
             my_logger.info('file {} created'.format(self.filename))
