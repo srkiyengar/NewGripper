@@ -477,7 +477,14 @@ if __name__ == '__main__':
                     gp_servo = palm.read_palm_servo_positions()
                     my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
                 elif button == 6:
-                    task_start_time = datetime.now()
+                    e2.clear()
+                    time.sleep(1)
+                    servo_gp = palm.move_fingers(my_joy,0.0,0.0)
+                    gp_servo = palm.read_palm_servo_positions()
+                    my_logger.info("Fingers at start positions {}".format(gp_servo[1:]))
+                    time.sleep(1)
+                    my_logger.info("Setting Event Flag")
+                    e2.set()
                     if reflex.ndi_measurement or reflex.log_data_to_file:
                         with my_lock:
                             # Close the previous file if it exists
@@ -491,7 +498,11 @@ if __name__ == '__main__':
                                 record_displacement = True
                         my_data_file = dc.displacement_file(my_rand)
                         file_ring[my_data_file.filename]=1
-                        my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
+                        finger_pos = palm.read_palm_servo_positions()
+                        del finger_pos[0]
+                        task_start_time = datetime.now()
+                        my_data_file.write_data(str(task_start_time) + ","+ str(finger_pos).strip("[]")+'\n')
+                        #my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
                         # Time difference between Labview PC and the Laptop running Gripper
 
                         my_rand += 1
@@ -507,9 +518,9 @@ if __name__ == '__main__':
                 elif button == 3:
                     e2.clear()
                     time.sleep(1)
-                    palm.move_to_lower_limits()
+                    servo_gp = palm.move_fingers(my_joy,0.0,0.0)
                     gp_servo = palm.read_palm_servo_positions()
-                    my_logger.info("Finger Lower Limit Positions {}".format(gp_servo[1:]))
+                    my_logger.info("Fingers at start positions {}".format(gp_servo[1:]))
                     time.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
@@ -536,30 +547,16 @@ if __name__ == '__main__':
                                     file_ring[my_servo_file.filename]=0
                                 '''
                                 record_displacement = False
-                #button 2 end recoding for good does not start the next recording and stamps the grip as failure.
+                #button 2 send it to the fully open fingers position
                 elif button == 2:
-                    task_end_time = datetime.now()
-                    if reflex.ndi_measurement or reflex.log_data_to_file:
-                        with my_lock:
-                            if (record_displacement == True):   # only when button was previously pressed
-                                if(file_ring[my_data_file.filename]== 1):
-                                    total_task_time = task_end_time - task_start_time
-                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
-                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
-                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
-                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
-                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
-                                    my_data_file.write_data("Grip Failure")
-                                    my_data_file.close_file()
-                                    file_ring[my_data_file.filename]=0
-                                    if(reflex.ndi_measurement):
-                                        my_connector.stop_collecting()
-                                '''
-                                if(file_ring[my_servo_file.filename]== 1):
-                                    my_servo_file.close_file()
-                                    file_ring[my_servo_file.filename]=0
-                                '''
-                                record_displacement = False
+                    e2.clear()
+                    time.sleep(1)
+                    palm.move_to_lower_limits()
+                    gp_servo = palm.read_palm_servo_positions()
+                    my_logger.info("Finger Lower Limit Positions {}".format(gp_servo[1:]))
+                    time.sleep(1)
+                    my_logger.info("Setting Event Flag")
+                    e2.set()
 
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
