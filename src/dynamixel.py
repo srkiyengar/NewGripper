@@ -193,6 +193,18 @@ class Robotis_Servo():
         present_speed = data[0] + data[1] * 256
         return present_speed
 
+    def read_multi_turn_offset(self):
+        data = self.read_address(0x14,2)
+        offset = data[0] + data[1] * 256
+        return offset
+
+    def read_resolution_divider(self):
+        '''read tfrom location address 0x16 one byte
+        '''
+        data = self.read_address(0x16,1)
+        resdiv = data[0]
+        return resdiv
+
     def __calc_checksum(self, msg):
         chksum = 0
         for m in msg:

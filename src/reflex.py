@@ -78,7 +78,11 @@ class reflex_sf():
             current_pos = j.read_current_position()
             speed = MAX_SPEED
             j.set_speed(speed)
-
+            my_logger.info("Servo {} - speed set to {}".format(i,speed))
+            val = j.read_multi_turn_offset()
+            my_logger.info("Servo {} - Multi-turn offset is {} ".format(i,val))
+            val = j.read_resolution_divider()
+            my_logger.info("Servo {} - Resolution Divider is {} ".format(i,val))
 
             if i==1:
                 joint_state = 1
@@ -103,6 +107,8 @@ class reflex_sf():
                                  "lower_limit":l_limits[i],"upper_limit":u_limits[i],"rotation":joint_state,
                                  "CP":current_pos, "CL":current_pos, "GP":current_pos,"rest_position":l_limits[i]}
             self.finger.append(finger_parameters)
+
+
 
     def get_palm_lower_limits(self):   #Returns a list of current lower limit
         rest_limits = [0,0,0,0,0]
