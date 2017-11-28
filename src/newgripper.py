@@ -56,6 +56,7 @@ last_time = datetime.now()
 my_lock = threading.Lock()      # shared variables between joy and reflex thread are accessed through a lock
 
 all_loop = True                 # loop control for threads
+all_loop_temp = True            #just to test if a thread can be re-started. Pressing 10 in Logitech joystick exits gripper thread.
 
 joy_measurement_ts = 0.0        # joystick displacement measurement timestamp
 joy_moved = False               # This is to restrict logging to logger only when there is a change in displacement
@@ -135,7 +136,8 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
     last_reflex_time = last_time
 
     previous_command_time = 0
-    while all_loop:
+    my_logger.info('Entering Reflex thread')
+    while all_loop and all_loop_temp:
         e2.wait()       # This is used to pause the thread in case we want to calibrate the gripper
         present_time = datetime.now()
         delta_t = present_time - last_reflex_time
@@ -192,6 +194,7 @@ def move_reflex_to_goal_positions(my_joy,palm,e2):
         previous_command_time = command_time
         last_reflex_time = present_time
     my_logger.info('Exit Reflex thread')
+
 
 def record_servo_position(palm,e2):
 
@@ -473,7 +476,7 @@ if __name__ == '__main__':
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
-                if button == 0:
+                if button == 5:
                     gp_servo = palm.read_palm_servo_positions()
                     my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
                 elif button == 6:
@@ -515,7 +518,7 @@ if __name__ == '__main__':
                         file_ring[my_servo_file.filename]=1
                     '''
                 # Sends the fingers to lower limits for now
-                elif button == 3:
+                elif button == 2:
                     e2.clear()
                     time.sleep(1)
                     servo_gp = palm.move_fingers(my_joy,0.0,0.0)
@@ -537,6 +540,7 @@ if __name__ == '__main__':
                                     my_data_file.write_data("End time: "+str(task_end_time)+'\n')
                                     my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
                                     my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
+                                    my_data_file.write_data("S:button 1 pressed-gripping success")
                                     my_data_file.close_file()
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):
@@ -547,8 +551,31 @@ if __name__ == '__main__':
                                     file_ring[my_servo_file.filename]=0
                                 '''
                                 record_displacement = False
-                #button 2 send it to the fully open fingers position
-                elif button == 2:
+                # END RECORDING - GRIPPER FAILURE
+                elif button == 3:
+                    task_end_time = datetime.now()
+                    if reflex.ndi_measurement or reflex.log_data_to_file:
+                        with my_lock:
+                            if (record_displacement == True):   # only when button was previously pressed
+                                if(file_ring[my_data_file.filename]== 1):
+                                    total_task_time = task_end_time - task_start_time
+                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
+                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
+                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
+                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
+                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
+                                    my_data_file.write_data("F:button 2 pressed-gripping failure")
+                                    my_data_file.close_file()
+                                    file_ring[my_data_file.filename]=0
+                                    if(reflex.ndi_measurement):
+                                        my_connector.stop_collecting()
+                                '''
+                                if(file_ring[my_servo_file.filename]== 1):
+                                    my_servo_file.close_file()
+                                    file_ring[my_servo_file.filename]=0
+                                '''
+                                record_displacement = False
+                elif button == 4:
                     e2.clear()
                     time.sleep(1)
                     palm.move_to_lower_limits()
@@ -557,6 +584,9 @@ if __name__ == '__main__':
                     time.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
+                elif button == 10:      # to test if we can re-start a thread
+                    all_loop_temp = False
+                    my_logger.info("Shutting the reflex thread")
 
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
@@ -594,6 +624,16 @@ if __name__ == '__main__':
 
         # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
         clock.tick(SCAN_RATE)
+        if not get_goal_position_thread.is_alive():
+            get_goal_position_thread = threading.Thread(target = update_joy_displacement,name="read_joystick",args=(my_joy,e2))
+            get_goal_position_thread.start()
+            my_logger.info("Thread {} restarted".format(get_goal_position_thread.name))
+
+        if not set_goal_position_thread.is_alive():
+            all_loop_temp = True    #This was put to test re-starting the thread. Logitech button 10 kills the thread.
+            set_goal_position_thread = threading.Thread(target = move_reflex_to_goal_positions,name="move_gripper", args=(my_joy,palm,e2))
+            set_goal_position_thread.start()
+            my_logger.info("Thread {} restarted".format(set_goal_position_thread.name))
 
     if(reflex.ndi_measurement):
         my_connector.destroy()

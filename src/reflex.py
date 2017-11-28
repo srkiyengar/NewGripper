@@ -373,6 +373,7 @@ class reflex_sf():
 
     def move_to_goal_position(self,gp):
         for i in range(1,5,1):      # the gp is a list of 5 numbers where the first one is unused
+                                    # 0,1,2,3,4 correspond to servo numbers. Since 0 in non existant
             my_logger.info("Moving Servo: {} to Goal position: {}".format(i, gp[i]))
             # check if it is within limit
             self.is_finger_within_limit(i,gp[i])
