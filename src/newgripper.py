@@ -564,7 +564,7 @@ if __name__ == '__main__':
                                     my_data_file.write_data("End time: "+str(task_end_time)+'\n')
                                     my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
                                     my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
-                                    my_data_file.write_data("F:button 2 pressed-gripping failure")
+                                    my_data_file.write_data("F:button 3 pressed-gripping failure")
                                     my_data_file.close_file()
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):
