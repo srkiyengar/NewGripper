@@ -428,7 +428,7 @@ if __name__ == '__main__':
                 my_logger.info("Camera connection success")
             else:
                 my_logger.info("Camera connection failure")
-                raise RuntimeError('Camera Connection failure\n')
+                # raise RuntimeError('Camera Connection failure\n')
         else:
             labview_connection = False
             my_logger.info("Labview connection failure")
@@ -517,7 +517,8 @@ if __name__ == '__main__':
                         my_rand += 1
                         if labview_connection:
                             # Send command to camera to take pictures
-                            my_camera.take_pic(my_data_file.id)
+                            if my_camera.connected == 1:
+                                my_camera.take_pic(my_data_file.id)
                             my_data_file.write_data("Time Difference between Labview PC and the Laptop running Gripper"
                                             "(+ive means Desktop is ahead): "+str(my_clock_sync.clock_difference)+'\n')
                             my_connector.start_collecting(my_data_file.id)
@@ -648,5 +649,7 @@ if __name__ == '__main__':
 
     if my_camera.connected == 1:
         my_camera.destroy()
+
+
 
 

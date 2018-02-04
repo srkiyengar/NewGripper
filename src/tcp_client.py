@@ -27,8 +27,8 @@ class make_connection:
         try:
             self.sock.connect((host,port))
             self.link = 1
-        except socket.timeout:
-            my_logger.info("Socket time out error")
+        except :
+            my_logger.info("Socket connection error")
             self.link = 0
 
     def end_socket(self):
@@ -63,6 +63,7 @@ class command_camera:
         self.my_connection = make_connection()
         self.my_connection.connect(host,port)
         self.connected = self.my_connection.link
+
 
     def take_pic(self,filename):
         self.datafile = filename
