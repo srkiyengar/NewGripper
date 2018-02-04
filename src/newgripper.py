@@ -646,4 +646,7 @@ if __name__ == '__main__':
     if(reflex.ndi_measurement):
         my_connector.destroy()
 
+    if my_camera.connected == 1:
+        my_camera.destroy()
+
 
