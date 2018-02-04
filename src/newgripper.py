@@ -423,6 +423,12 @@ if __name__ == '__main__':
                     # raise RuntimeError('Transit Time in milliseconds too high to sync clock', (transit_time/1000),'\n')
             labview_connection = True       # with labview running, this program has established  tcp connection
             my_logger.info("Labview connection success")
+            my_camera = tc.command_camera()
+            if my_camera.connected == 1:
+                my_logger.info("Camera connection success")
+            else:
+                my_logger.info("Camera connection failure")
+                raise RuntimeError('Camera Connection failure\n')
         else:
             labview_connection = False
             my_logger.info("Labview connection failure")
@@ -510,6 +516,8 @@ if __name__ == '__main__':
 
                         my_rand += 1
                         if labview_connection:
+                            # Send command to camera to take pictures
+                            my_camera.take_pic(my_data_file.id)
                             my_data_file.write_data("Time Difference between Labview PC and the Laptop running Gripper"
                                             "(+ive means Desktop is ahead): "+str(my_clock_sync.clock_difference)+'\n')
                             my_connector.start_collecting(my_data_file.id)
