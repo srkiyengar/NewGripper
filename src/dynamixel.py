@@ -42,7 +42,6 @@ import thread
 import string
 
 
-
 class USB2Dynamixel_Device():
     ''' Class that manages serial port contention between servos on same bus
     '''
@@ -92,6 +91,7 @@ class USB2Dynamixel_Device():
             self.servo_dev.flushInput()
 
         except (serial.serialutil.SerialException), e:
+       # except serial.IOError as e:
             print e.args
             raise RuntimeError('lib_robotis: Serial port issue!\n')
         if(self.servo_dev == None):

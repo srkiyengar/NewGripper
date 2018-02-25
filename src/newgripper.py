@@ -400,8 +400,45 @@ if __name__ == '__main__':
         # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
         clock.tick(SCAN_RATE)
 
-    # Calibration completed
+    # Collect taxonomy
 
+    taxonomy = False
+    my_list = []
+    while taxonomy is False:
+        screen.fill(WHITE)
+        textPrint.reset()
+
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                key_pressed = event.key
+                key_ring[str(key_pressed)] = 1
+                if key_pressed == 13:   # Enter Key
+                    taxonomy = True
+                elif key_pressed == 8:  # Backspace Key
+                    del my_list[-1]
+                else:
+                    my_list.append(chr(key_pressed))
+            elif event.type == pygame.KEYUP:
+                key_released = event.key
+                my_logger.info("Key Ascii Value {} Released".format(key_released))
+                key_ring[str(key_released)] = 0
+            else:
+                pass  # ignoring other event types
+        tax_text = ''.join(my_list)
+        textPrint.Screenprint(screen, "Taxonomy Text = {}".format(tax_text))
+        textPrint.Yspace()
+        textPrint.Yspace()
+
+        textPrint.Screenprint(screen, "Press 'Enter' when taxonomy text is complete")
+
+        # Go ahead and update the screen with what we've drawn.
+        pygame.display.flip()
+
+        # Limit to 20 frames per second OR 50 ms scan rate - 1000/20 = 50 ms Both display and checking of Joystick;
+        clock.tick(SCAN_RATE)
+
+    my_logger.info("Taxonomy text = {}".format(tax_text))
+    # taxonomy text input completed
 
 
 
@@ -549,7 +586,8 @@ if __name__ == '__main__':
                                     my_data_file.write_data("End time: "+str(task_end_time)+'\n')
                                     my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
                                     my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
-                                    my_data_file.write_data("S:button 1 pressed-gripping success")
+                                    my_data_file.write_data("S:button 1 pressed-gripping success\n")
+                                    my_data_file.write_data("T:"+tax_text)
                                     my_data_file.close_file()
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):
@@ -573,7 +611,8 @@ if __name__ == '__main__':
                                     my_data_file.write_data("End time: "+str(task_end_time)+'\n')
                                     my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
                                     my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
-                                    my_data_file.write_data("F:button 3 pressed-gripping failure")
+                                    my_data_file.write_data("F:button 3 pressed-gripping failure\n")
+                                    my_data_file.write_data("T:" + tax_text)
                                     my_data_file.close_file()
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):
@@ -647,9 +686,5 @@ if __name__ == '__main__':
     if(reflex.ndi_measurement):
         my_connector.destroy()
 
-    if my_camera.connected == 1:
-        my_camera.destroy()
-
-
-
-
+        if my_camera.connected == 1:
+            my_camera.destroy()
