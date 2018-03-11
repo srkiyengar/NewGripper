@@ -71,6 +71,16 @@ class command_camera:
         self.my_connection.send_data(my_str)
         my_logger.info("Sent Command to Camera to take picture for {}".format(filename))
 
+    def start_trial(self,filename):
+        my_str = "off " + filename + "\n"
+        self.my_connection.send_data(my_str)
+        my_logger.info("Sent Command to Camera to take picture for {}".format(filename))
+
+    def stop_trial(self):
+        my_str = "on" + "\n"
+        self.my_connection.send_data(my_str)
+        my_logger.info("Sent Command to end Camera picture")
+
     def destroy(self):
         self.my_connection.end_socket()
 

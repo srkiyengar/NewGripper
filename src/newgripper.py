@@ -12,6 +12,8 @@ import time
 import data_collect as dc
 import random
 import tcp_client as tc
+import shutter
+import serial
 
 
 SOME_MIN_RANDOM_NUMBER = 100001
@@ -460,6 +462,8 @@ if __name__ == '__main__':
                     # raise RuntimeError('Transit Time in milliseconds too high to sync clock', (transit_time/1000),'\n')
             labview_connection = True       # with labview running, this program has established  tcp connection
             my_logger.info("Labview connection success")
+            #shutter
+            shutter_port = serial.Serial('/dev/ttyACM0', 115200)
             my_camera = tc.command_camera()
             if my_camera.connected == 1:
                 my_logger.info("Camera connection success")
@@ -553,9 +557,10 @@ if __name__ == '__main__':
 
                         my_rand += 1
                         if labview_connection:
-                            # Send command to camera to take pictures
+                            # send command to open shutter and take (freeze) picture in the camera server
+                            shutter.command_shutter(shutter_port,2)
                             if my_camera.connected == 1:
-                                my_camera.take_pic(my_data_file.id)
+                                my_camera.start_trial(my_data_file.id)
                             my_data_file.write_data("Time Difference between Labview PC and the Laptop running Gripper"
                                             "(+ive means Desktop is ahead): "+str(my_clock_sync.clock_difference)+'\n')
                             my_connector.start_collecting(my_data_file.id)
@@ -589,6 +594,10 @@ if __name__ == '__main__':
                                     my_data_file.write_data("S:button 1 pressed-gripping success\n")
                                     my_data_file.write_data("T:"+tax_text)
                                     my_data_file.close_file()
+                                    # send command to open shutter and get camera ready for next
+                                    if my_camera.connected == 1:
+                                        my_camera.stop_trial()
+                                    shutter.command_shutter(shutter_port,1)
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):
                                         my_connector.stop_collecting()
@@ -598,6 +607,8 @@ if __name__ == '__main__':
                                     file_ring[my_servo_file.filename]=0
                                 '''
                                 record_displacement = False
+                                # send command to open shutter
+
                 # END RECORDING - GRIPPER FAILURE
                 elif button == 3:
                     task_end_time = datetime.now()
@@ -614,6 +625,10 @@ if __name__ == '__main__':
                                     my_data_file.write_data("F:button 3 pressed-gripping failure\n")
                                     my_data_file.write_data("T:" + tax_text)
                                     my_data_file.close_file()
+                                    # send command to open shutter and get camera ready for next
+                                    if my_camera.connected == 1:
+                                        my_camera.stop_trial()
+                                    shutter.command_shutter(shutter_port,1)
                                     file_ring[my_data_file.filename]=0
                                     if(reflex.ndi_measurement):
                                         my_connector.stop_collecting()
@@ -623,6 +638,7 @@ if __name__ == '__main__':
                                     file_ring[my_servo_file.filename]=0
                                 '''
                                 record_displacement = False
+
                 elif button == 4:
                     e2.clear()
                     time.sleep(1)
