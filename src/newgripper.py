@@ -68,6 +68,14 @@ joy_moved = False               # This is to restrict logging to logger only whe
 record_displacement = False     # When to record finger position with time for gripping
 
 
+def toggle(a):
+    if a:
+        a = False
+    else:
+        a = True
+    return a
+
+
 
 def stop_all_thread():
     '''
@@ -309,6 +317,7 @@ if __name__ == '__main__':
 
     # for print in Pygame screen object
     textPrint = sp.TextPrint()
+    counterPrint = sp.CounterPrint()
 
     # Joystick Values
 
@@ -416,10 +425,12 @@ if __name__ == '__main__':
                 key_ring[str(key_pressed)] = 1
                 if key_pressed == 13:   # Enter Key
                     taxonomy = True
+                    break
                 elif key_pressed == 8:  # Backspace Key
                     del my_list[-1]
                 else:
-                    my_list.append(chr(key_pressed))
+                    if key_pressed <= 255:
+                        my_list.append(chr(key_pressed))
             elif event.type == pygame.KEYUP:
                 key_released = event.key
                 my_logger.info("Key Ascii Value {} Released".format(key_released))
@@ -463,7 +474,7 @@ if __name__ == '__main__':
             labview_connection = True       # with labview running, this program has established  tcp connection
             my_logger.info("Labview connection success")
             #shutter
-            shutter_port = serial.Serial('/dev/ttyACM0', 115200)
+            #shutter_port = serial.Serial('/dev/ttyACM0', 115200)
             my_camera = tc.command_camera()
             if my_camera.connected == 1:
                 my_logger.info("Camera connection success")
@@ -492,12 +503,20 @@ if __name__ == '__main__':
     my_threads.append(set_goal_position_thread.name)
     my_logger.info("Joy thread {} Gripper thread {}".format(my_threads[0],my_threads[1]))
 
+    text_mode = False
+    # counts the number of time button 1, button 3, and button 6 of the joystick is pressed
+    # during a properly configured trial they relate to the trial files
+    s = 0
+    f = 0
+    trials = 0
+    my_list = []
     # The main loop that examines for other UI actions including Joy button/HatLoop until the user clicks the close button.
     done = False
     my_rand = some_random_number = random.randrange(SOME_MIN_RANDOM_NUMBER,SOME_MAX_RANDOM_NUMBER)
     while done is False:
         screen.fill(WHITE)
         textPrint.reset()
+        counterPrint.reset()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
@@ -510,12 +529,24 @@ if __name__ == '__main__':
                 key_pressed = event.key
                 my_logger.info("Key Ascii Value {} Pressed".format(key_pressed))
                 key_ring[str(key_pressed)] = 1
-                if key_ring['301'] == 1:    # Caps lock is 1
-                    e2.clear()
-                    time.sleep(0.5)
-                    my_key_controller.set_key_press(key_pressed)
-                    time.sleep(0.2)
-                    e2.set()
+                if text_mode:
+                    if key_pressed == 13:  # Enter Key
+                        tax_text = ''.join(my_list)
+                        text_mode = toggle(text_mode)
+                    elif key_pressed == 8:  # Backspace Key
+                        del my_list[-1]
+                        tax_text = ''.join(my_list)
+                    else:
+                        if key_pressed <= 255:
+                            my_list.append(chr(key_pressed))
+                            tax_text = ''.join(my_list)
+                else:
+                    if key_ring['301'] == 1:    # Caps lock is 1
+                        e2.clear()
+                        time.sleep(0.5)
+                        my_key_controller.set_key_press(key_pressed)
+                        time.sleep(0.2)
+                        e2.set()
             elif event.type == pygame.KEYUP:
                 key_released = event.key
                 my_logger.info("Key Ascii Value {} Released".format(key_released))
@@ -523,16 +554,96 @@ if __name__ == '__main__':
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = my_joy.get_button_pressed(event)
                 my_logger.info("Button {} pressed".format(button))
-                if button == 5:
-                    gp_servo = palm.read_palm_servo_positions()
-                    my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
-                elif button == 6:
+
+                #button 1 ends good recoding but does not start the next recording
+                if button == 1:
+                    s +=1
+                    task_end_time = datetime.now()
+                    if reflex.ndi_measurement or reflex.log_data_to_file:
+                        with my_lock:
+                            if (record_displacement == True):   # only when button was previously pressed
+                                if(file_ring[my_data_file.filename]== 1):
+                                    total_task_time = task_end_time - task_start_time
+                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
+                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
+                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
+                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
+                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
+                                    my_data_file.write_data("S:button 1 pressed-gripping success\n")
+                                    my_data_file.write_data("T:"+tax_text)
+                                    my_data_file.close_file()
+                                    # send command to open shutter and get camera ready for next
+                                    if my_camera.connected == 1:
+                                        my_camera.stop_trial()
+                                    #shutter.command_shutter(shutter_port,1)
+                                    file_ring[my_data_file.filename]=0
+                                    if(reflex.ndi_measurement):
+                                        my_connector.stop_collecting()
+                                '''
+                                if(file_ring[my_servo_file.filename]== 1):
+                                    my_servo_file.close_file()
+                                    file_ring[my_servo_file.filename]=0
+                                '''
+                                record_displacement = False
+
+                elif button == 2:
                     e2.clear()
                     time.sleep(1)
                     servo_gp = palm.move_fingers(my_joy,0.0,0.0)
                     gp_servo = palm.read_palm_servo_positions()
                     my_logger.info("Fingers at start positions {}".format(gp_servo[1:]))
                     time.sleep(1)
+                    my_logger.info("Setting Event Flag")
+                    e2.set()
+                elif button == 3:   # end recording - gripping failure
+                    f += 1
+                    task_end_time = datetime.now()
+                    if reflex.ndi_measurement or reflex.log_data_to_file:
+                        with my_lock:
+                            if (record_displacement == True):   # only when button was previously pressed
+                                if(file_ring[my_data_file.filename]== 1):
+                                    total_task_time = task_end_time - task_start_time
+                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
+                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
+                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
+                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
+                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
+                                    my_data_file.write_data("F:button 3 pressed-gripping failure\n")
+                                    my_data_file.write_data("T:" + tax_text)
+                                    my_data_file.close_file()
+                                    # send command to open shutter and get camera ready for next
+                                    if my_camera.connected == 1:
+                                        my_camera.stop_trial()
+                                    #shutter.command_shutter(shutter_port,1)
+                                    file_ring[my_data_file.filename]=0
+                                    if(reflex.ndi_measurement):
+                                        my_connector.stop_collecting()
+                                '''
+                                if(file_ring[my_servo_file.filename]== 1):
+                                    my_servo_file.close_file()
+                                    file_ring[my_servo_file.filename]=0
+                                '''
+                                record_displacement = False
+                elif button == 4:
+                    e2.clear()
+                    time.sleep(1)
+                    palm.move_to_lower_limits()
+                    gp_servo = palm.read_palm_servo_positions()
+                    my_logger.info("Finger Lower Limit Positions {}".format(gp_servo[1:]))
+                    time.sleep(1)
+                    my_logger.info("Setting Event Flag")
+                    e2.set()
+                elif button == 5:
+                    gp_servo = palm.read_palm_servo_positions()
+                    my_logger.info("Finger Current Positions {}".format(gp_servo[1:]))
+                elif button == 6:
+                    trials += 1
+                    e2.clear()
+                    #time.sleep(1)
+                    servo_gp = palm.move_fingers(my_joy,0.0,0.0)
+                    gp_servo = palm.read_palm_servo_positions()
+                    my_logger.info("Fingers at start positions {}".format(gp_servo[1:]))
+                    #rtime.sleep(1)
                     my_logger.info("Setting Event Flag")
                     e2.set()
                     if reflex.ndi_measurement or reflex.log_data_to_file:
@@ -558,7 +669,7 @@ if __name__ == '__main__':
                         my_rand += 1
                         if labview_connection:
                             # send command to open shutter and take (freeze) picture in the camera server
-                            shutter.command_shutter(shutter_port,2)
+                            #shutter.command_shutter(shutter_port,2)
                             if my_camera.connected == 1:
                                 my_camera.start_trial(my_data_file.id)
                             my_data_file.write_data("Time Difference between Labview PC and the Laptop running Gripper"
@@ -569,88 +680,13 @@ if __name__ == '__main__':
                         file_ring[my_servo_file.filename]=1
                     '''
                 # Sends the fingers to lower limits for now
-                elif button == 2:
-                    e2.clear()
-                    time.sleep(1)
-                    servo_gp = palm.move_fingers(my_joy,0.0,0.0)
-                    gp_servo = palm.read_palm_servo_positions()
-                    my_logger.info("Fingers at start positions {}".format(gp_servo[1:]))
-                    time.sleep(1)
-                    my_logger.info("Setting Event Flag")
-                    e2.set()
-                #button 1 ends recoding for good but does not start the next recording
-                elif button == 1:
-                    task_end_time = datetime.now()
-                    if reflex.ndi_measurement or reflex.log_data_to_file:
-                        with my_lock:
-                            if (record_displacement == True):   # only when button was previously pressed
-                                if(file_ring[my_data_file.filename]== 1):
-                                    total_task_time = task_end_time - task_start_time
-                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
-                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
-                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
-                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
-                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
-                                    my_data_file.write_data("S:button 1 pressed-gripping success\n")
-                                    my_data_file.write_data("T:"+tax_text)
-                                    my_data_file.close_file()
-                                    # send command to open shutter and get camera ready for next
-                                    if my_camera.connected == 1:
-                                        my_camera.stop_trial()
-                                    shutter.command_shutter(shutter_port,1)
-                                    file_ring[my_data_file.filename]=0
-                                    if(reflex.ndi_measurement):
-                                        my_connector.stop_collecting()
-                                '''
-                                if(file_ring[my_servo_file.filename]== 1):
-                                    my_servo_file.close_file()
-                                    file_ring[my_servo_file.filename]=0
-                                '''
-                                record_displacement = False
-                                # send command to open shutter
-
-                # END RECORDING - GRIPPER FAILURE
-                elif button == 3:
-                    task_end_time = datetime.now()
-                    if reflex.ndi_measurement or reflex.log_data_to_file:
-                        with my_lock:
-                            if (record_displacement == True):   # only when button was previously pressed
-                                if(file_ring[my_data_file.filename]== 1):
-                                    total_task_time = task_end_time - task_start_time
-                                    total_task_time = total_task_time.seconds+ total_task_time.microseconds/1000000.0
-                                    my_data_file.write_data("Start time: "+str(task_start_time)+'\n')
-                                    my_data_file.write_data("End time: "+str(task_end_time)+'\n')
-                                    my_data_file.write_data("Task_time: "+str(total_task_time)+'\n')
-                                    my_data_file.write_data(palm.get_move_finger_control_method()+'\n')
-                                    my_data_file.write_data("F:button 3 pressed-gripping failure\n")
-                                    my_data_file.write_data("T:" + tax_text)
-                                    my_data_file.close_file()
-                                    # send command to open shutter and get camera ready for next
-                                    if my_camera.connected == 1:
-                                        my_camera.stop_trial()
-                                    shutter.command_shutter(shutter_port,1)
-                                    file_ring[my_data_file.filename]=0
-                                    if(reflex.ndi_measurement):
-                                        my_connector.stop_collecting()
-                                '''
-                                if(file_ring[my_servo_file.filename]== 1):
-                                    my_servo_file.close_file()
-                                    file_ring[my_servo_file.filename]=0
-                                '''
-                                record_displacement = False
-
-                elif button == 4:
-                    e2.clear()
-                    time.sleep(1)
-                    palm.move_to_lower_limits()
-                    gp_servo = palm.read_palm_servo_positions()
-                    my_logger.info("Finger Lower Limit Positions {}".format(gp_servo[1:]))
-                    time.sleep(1)
-                    my_logger.info("Setting Event Flag")
-                    e2.set()
                 elif button == 10:      # to test if we can re-start a thread
                     all_loop_temp = False
                     my_logger.info("Shutting the reflex thread")
+                elif button == 11:
+                    text_mode = toggle(text_mode)
+                    if text_mode:
+                        my_list=[]
 
             elif event.type == pygame.JOYBUTTONUP:
                 my_logger.info("Button {} Released".format(button))
@@ -676,6 +712,17 @@ if __name__ == '__main__':
         textPrint.Screenprint(screen,"Logging servo data file (Toggle with l)---> {} ".format(reflex.log_data_to_file))
         textPrint.Yspace()
         textPrint.Screenprint(screen,"Joystick drives Gripper (Toggle with x) ----> {}".format(reflex.servo_move_with_joy))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Text mode (toggle with Button 11. press ENTER to end) = {}".format(text_mode))
+        textPrint.Yspace()
+        textPrint.Screenprint(screen, "Taxonomy Text = {}".format(tax_text))
+        textPrint.Yspace()
+
+        counterPrint.Screenprint(screen, "Trials: {}".format(trials))
+        counterPrint.Yspace()
+        counterPrint.Screenprint(screen, "Success: {}".format(s))
+        counterPrint.Yspace()
+        counterPrint.Screenprint(screen, "Failures: {}".format(f))
 
         #textPrint.indent()
         #textPrint.Yspace()
